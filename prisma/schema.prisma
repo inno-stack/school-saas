@@ -52,7 +52,9 @@ model School {
   updatedAt   DateTime @updatedAt
 
   users       User[]
-  students  Student[]  
+  students  Student[]
+  classes   Class[] 
+   subjects  Subject[] 
 
   @@map("schools")
 }
@@ -156,4 +158,48 @@ model Student {
   @@index([regNumber])
   @@index([parentId])
   @@map("students")
+}
+
+// ─────────────────────────────────────────
+// CLASS
+// ─────────────────────────────────────────
+
+model Class {
+  id          String   @id @default(cuid())
+  name        String                        // e.g. "JSS 1", "SS 2A"
+  description String?
+  schoolId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subjects    Subject[]
+
+  @@unique([name, schoolId])               // same class name can't exist twice per school
+  @@index([schoolId])
+  @@map("classes")
+}
+
+// ─────────────────────────────────────────
+// SUBJECT
+// ─────────────────────────────────────────
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String                        // e.g. "Mathematics", "English Language"
+  code        String?                       // e.g. "MTH", "ENG"
+  classId     String
+  schoolId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  class       Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  school      School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([name, classId])                // same subject can't exist twice per class
+  @@index([classId])
+  @@index([schoolId])
+  @@map("subjects")
 }
