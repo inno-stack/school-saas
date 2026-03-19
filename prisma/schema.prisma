@@ -1,0 +1,159 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+  PARENT
+}
+
+enum TokenType {
+  REFRESH
+  RESET_PASSWORD
+}
+
+// ─────────────────────────────────────────
+// SCHOOL (Tenant root)
+// ─────────────────────────────────────────
+
+model School {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  email       String   @unique
+  phone       String?
+  address     String?
+  logo        String?
+  website     String?
+  motto       String?
+  
+  // Settings
+  termName    String   @default("Term")      // "Term" or "Semester"
+  resultPin   Boolean  @default(true)        // require scratch card for results
+  showPosition Boolean @default(true)        // show class position on result
+
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  students  Student[]  
+
+  @@map("schools")
+}
+
+// ─────────────────────────────────────────
+// USER (All roles share this model)
+// ─────────────────────────────────────────
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  phone       String?
+  address     String?
+  photo       String?
+  role        Role
+  isActive    Boolean  @default(true)
+  schoolId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  tokens      Token[]
+  students    Student[] @relation("ParentStudents")
+
+  @@index([schoolId])
+  @@index([email])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────
+// TOKEN (Refresh tokens stored in DB)
+// ─────────────────────────────────────────
+
+model Token {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  type      TokenType @default(REFRESH)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("tokens")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  TRANSFERRED
+  SUSPENDED
+}
+
+
+// ─────────────────────────────────────────
+// STUDENT
+// ─────────────────────────────────────────
+
+model Student {
+  id             String        @id @default(cuid())
+  regNumber      String        @unique   // e.g. GFA/2024/001
+  firstName      String
+  lastName       String
+  middleName     String?
+  dateOfBirth    DateTime?
+  gender         Gender
+  photo          String?
+  address        String?
+  status         StudentStatus @default(ACTIVE)
+
+  // Parent link (optional at creation)
+  parentId       String?
+
+  // School (tenant)
+  schoolId       String
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  school         School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  parent         User?   @relation("ParentStudents", fields: [parentId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId])
+  @@index([regNumber])
+  @@index([parentId])
+  @@map("students")
+}
