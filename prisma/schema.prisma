@@ -60,6 +60,7 @@ model School {
     results      Result[]  
     resultItems  ResultItem[]
      resultSkills ResultSkill[]
+     scratchCards ScratchCard[] 
 
 
   @@map("schools")
@@ -394,4 +395,40 @@ model ResultSkill {
   @@unique([resultId, name])
   @@index([resultId])
   @@map("result_skills")
+}
+
+// ─────────────────────────────────────────
+// SCRATCH CARD
+// ─────────────────────────────────────────
+
+enum CardStatus {
+  UNUSED
+  USED
+  DISABLED
+}
+
+model ScratchCard {
+  id          String     @id @default(cuid())
+  serial      String     @unique    // e.g. ASSE-2026-000001
+  pin         String     @unique    // e.g. 749182635047
+  status      CardStatus @default(UNUSED)
+  schoolId    String
+
+  // Set when card is used
+  usedBy      String?               // studentId
+  usedAt      DateTime?
+
+  // Optional: pre-assign to a student
+  assignedTo  String?               // studentId
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  school      School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([pin])
+  @@index([serial])
+  @@map("scratch_cards")
 }

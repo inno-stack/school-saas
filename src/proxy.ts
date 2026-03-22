@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/jwt";
+import { NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_ROUTES = [
   "/api/auth/register",
@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/refresh",
   "/api/auth/logout",
   "/api/results/verify",
+  "/api/scratch-cards/validate",
 ];
 
 const ROLE_ROUTES: Record<string, string[]> = {
@@ -28,14 +29,12 @@ export async function proxy(req: NextRequest) {
 
   // Extract token
   const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
   if (!token) {
     return NextResponse.json(
       { success: false, message: "Authentication required" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -44,7 +43,7 @@ export async function proxy(req: NextRequest) {
 
     // Role-based access control
     const matchedRoute = Object.keys(ROLE_ROUTES).find((route) =>
-      pathname.startsWith(route)
+      pathname.startsWith(route),
     );
 
     if (matchedRoute) {
@@ -52,7 +51,7 @@ export async function proxy(req: NextRequest) {
       if (!allowedRoles.includes(payload.role)) {
         return NextResponse.json(
           { success: false, message: "Forbidden: Insufficient permissions" },
-          { status: 403 }
+          { status: 403 },
         );
       }
     }
@@ -65,11 +64,10 @@ export async function proxy(req: NextRequest) {
     requestHeaders.set("x-user-school-id", payload.schoolId);
 
     return NextResponse.next({ request: { headers: requestHeaders } });
-
   } catch {
     return NextResponse.json(
       { success: false, message: "Invalid or expired token" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 }
