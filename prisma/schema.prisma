@@ -54,10 +54,17 @@ model School {
   users       User[]
   students  Student[]
   classes   Class[] 
-   subjects  Subject[] 
+  subjects  Subject[] 
+  sessions  Session[]
+    terms     Term[]
+    results      Result[]  
+    resultItems  ResultItem[]
+     resultSkills ResultSkill[]
+
 
   @@map("schools")
 }
+
 
 // ─────────────────────────────────────────
 // USER (All roles share this model)
@@ -158,6 +165,7 @@ model Student {
   @@index([regNumber])
   @@index([parentId])
   @@map("students")
+   results   Result[] 
 }
 
 // ─────────────────────────────────────────
@@ -179,6 +187,7 @@ model Class {
   @@unique([name, schoolId])               // same class name can't exist twice per school
   @@index([schoolId])
   @@map("classes")
+  results   Result[] 
 }
 
 // ─────────────────────────────────────────
@@ -202,4 +211,187 @@ model Subject {
   @@index([classId])
   @@index([schoolId])
   @@map("subjects")
+   resultItems  ResultItem[] 
+}
+
+
+// ─────────────────────────────────────────
+// ACADEMIC SESSION
+// ─────────────────────────────────────────
+
+model Session {
+  id          String   @id @default(cuid())
+  name        String                        // e.g. "2025/2026"
+  isActive    Boolean  @default(false)      // only one active per school
+  schoolId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  school      School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  terms       Term[]
+
+  @@unique([name, schoolId])
+  @@index([schoolId])
+  @@map("sessions")
+  results   Result[] 
+}
+
+// ─────────────────────────────────────────
+// TERM
+// ─────────────────────────────────────────
+
+enum TermNumber {
+  FIRST
+  SECOND
+  THIRD
+}
+
+model Term {
+  id          String     @id @default(cuid())
+  name        TermNumber                    // FIRST, SECOND, THIRD
+  isActive    Boolean    @default(false)    // only one active per school
+  sessionId   String
+  schoolId    String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  session     Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  school      School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([name, sessionId])               // can't have two "FIRST" terms in same session
+  @@index([sessionId])
+  @@index([schoolId])
+  @@map("terms")
+  results   Result[] 
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Grade {
+  A
+  B
+  C
+  P
+  F
+}
+
+enum SkillRating {
+  EXCELLENT   // 5
+  GOOD        // 4
+  FAIR        // 3
+  POOR        // 2
+  VERY_POOR   // 1
+}
+
+// ─────────────────────────────────────────
+// RESULT (one per student per term)
+// ─────────────────────────────────────────
+
+model Result {
+  id                String   @id @default(cuid())
+  studentId         String
+  classId           String
+  sessionId         String
+  termId            String
+  schoolId          String
+
+  // Summary (auto-calculated)
+  totalScore        Float    @default(0)
+  average           Float    @default(0)
+  position          Int?
+  outOf             Int      @default(0)   // total students in class
+  performance       String?               // "Distinction", "Credit" etc
+
+  // Attendance
+  daysOpen          Int?
+  daysPresent       Int?
+  daysAbsent        Int?
+  vacationDate      DateTime?
+  resumptionDate    DateTime?
+
+  // Comments
+  teacherComment    String?
+  principalComment  String?
+  teacherName       String?
+  principalName     String?
+
+  isPublished       Boolean  @default(false)  // controls student visibility
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  student           Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class             Class        @relation(fields: [classId], references: [id])
+  session           Session      @relation(fields: [sessionId], references: [id])
+  term              Term         @relation(fields: [termId], references: [id])
+  school            School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  items             ResultItem[]
+  skills            ResultSkill[]
+
+  @@unique([studentId, termId])            // one result per student per term
+  @@index([schoolId])
+  @@index([classId, termId])
+  @@index([studentId])
+  @@map("results")
+}
+
+// ─────────────────────────────────────────
+// RESULT ITEM (one per subject per result)
+// ─────────────────────────────────────────
+
+model ResultItem {
+  id              String  @id @default(cuid())
+  resultId        String
+  subjectId       String
+  schoolId        String
+
+  // Scores
+  caScore         Float?               // Continuous Assessment (max 40)
+  examScore       Float?               // Exam score (max 60)
+  totalScore      Float?               // CA + Exam
+  grade           Grade?
+  remark          String?              // "Excellent", "Very Good" etc
+  description     String?              // "Distinction", "Upper Credit" etc
+  positionInClass Int?                 // position in this subject
+  classAverage    Float?               // average for this subject in class
+
+  // Relations
+  result          Result  @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  subject         Subject @relation(fields: [subjectId], references: [id])
+  school          School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([resultId, subjectId])      // one item per subject per result
+  @@index([resultId])
+  @@index([subjectId])
+  @@map("result_items")
+}
+
+// ─────────────────────────────────────────
+// RESULT SKILL (psychomotor + social behaviour)
+// ─────────────────────────────────────────
+
+enum SkillCategory {
+  PSYCHOMOTOR
+  SOCIAL
+}
+
+model ResultSkill {
+  id         String          @id @default(cuid())
+  resultId   String
+  schoolId   String
+  category   SkillCategory
+  name       String          // e.g. "Handwriting", "Punctuality"
+  rating     SkillRating?
+
+  // Relations
+  result     Result @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  school     School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([resultId, name])
+  @@index([resultId])
+  @@map("result_skills")
 }
