@@ -61,6 +61,8 @@ model School {
     resultItems  ResultItem[]
      resultSkills ResultSkill[]
      scratchCards ScratchCard[] 
+     cardUsages    CardUsage[]  
+     parentStudents ParentStudent[] 
 
 
   @@map("schools")
@@ -90,6 +92,7 @@ model User {
   school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   tokens      Token[]
   students    Student[] @relation("ParentStudents")
+    parentLinks  ParentStudent[] @relation("ParentLinks") 
 
   @@index([schoolId])
   @@index([email])
@@ -166,7 +169,33 @@ model Student {
   @@index([regNumber])
   @@index([parentId])
   @@map("students")
-   results   Result[] 
+   results   Result[]
+   cardUsages    CardUsage[]  
+    parentLinks   ParentStudent[] @relation("StudentLinks")
+}
+
+
+// ─────────────────────────────────────────
+// PARENT-STUDENT LINK (many-to-many)
+// ─────────────────────────────────────────
+
+model ParentStudent {
+  id        String   @id @default(cuid())
+  parentId  String
+  studentId String
+  schoolId  String
+  createdAt DateTime @default(now())
+
+  // Relations
+  parent    User    @relation("ParentLinks", fields: [parentId],  references: [id], onDelete: Cascade)
+  student   Student @relation("StudentLinks", fields: [studentId], references: [id], onDelete: Cascade)
+  school    School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([parentId])
+  @@index([studentId])
+  @@index([schoolId])
+  @@map("parent_students")
 }
 
 // ─────────────────────────────────────────
@@ -236,6 +265,7 @@ model Session {
   @@index([schoolId])
   @@map("sessions")
   results   Result[] 
+  scratchCards  ScratchCard[]
 }
 
 // ─────────────────────────────────────────
@@ -266,6 +296,7 @@ model Term {
   @@index([schoolId])
   @@map("terms")
   results   Result[] 
+   cardUsages    CardUsage[]  
 }
 
 // ─────────────────────────────────────────
@@ -402,33 +433,56 @@ model ResultSkill {
 // ─────────────────────────────────────────
 
 enum CardStatus {
-  UNUSED
-  USED
-  DISABLED
+  ACTIVE      // has remaining uses
+  EXHAUSTED   // all 4 uses consumed
+  DISABLED    // manually disabled by admin
 }
 
 model ScratchCard {
   id          String     @id @default(cuid())
-  serial      String     @unique    // e.g. ASSE-2026-000001
-  pin         String     @unique    // e.g. 749182635047
-  status      CardStatus @default(UNUSED)
+  serial      String     @unique
+  pin         String     @unique
+  status      CardStatus @default(ACTIVE)
   schoolId    String
+  sessionId   String                        // ← locked to a session
 
-  // Set when card is used
-  usedBy      String?               // studentId
-  usedAt      DateTime?
+  // Usage tracking
+  usageCount  Int        @default(0)
+  maxUses     Int        @default(4)
 
   // Optional: pre-assign to a student
-  assignedTo  String?               // studentId
+  assignedTo  String?
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   // Relations
-  school      School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  usages      CardUsage[]
 
   @@index([schoolId])
   @@index([pin])
-  @@index([serial])
+  @@index([sessionId])
   @@map("scratch_cards")
+}
+
+// Tracks every individual use of a card
+model CardUsage {
+  id          String   @id @default(cuid())
+  cardId      String
+  studentId   String
+  termId      String
+  schoolId    String
+  usedAt      DateTime @default(now())
+
+  // Relations
+  card        ScratchCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  student     Student     @relation(fields: [studentId], references: [id])
+  term        Term        @relation(fields: [termId], references: [id])
+  school      School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@index([studentId])
+  @@map("card_usages")
 }

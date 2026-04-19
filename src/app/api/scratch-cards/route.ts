@@ -1,3 +1,4 @@
+import { getActivePeriod } from "@/lib/active-period";
 import { requireAuth } from "@/lib/auth-guard";
 import { generateSerial, generateUniquePin } from "@/lib/card-generator";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +7,6 @@ import { generateCardsSchema } from "@/validators/scratch-card.validator";
 import { NextRequest } from "next/server";
 
 // ── GET /api/scratch-cards ─────────────────────────
-// List all cards for this school (paginated + filters)
 export async function GET(req: NextRequest) {
   const { auth, error } = requireAuth(req, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   if (error) return error;
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const where = {
       schoolId: auth!.schoolId,
-      ...(status && { status: status as "UNUSED" | "USED" | "DISABLED" }),
+      ...(status && { status: status as "ACTIVE" | "EXHAUSTED" | "DISABLED" }),
       ...(search && {
         OR: [
           { serial: { contains: search, mode: "insensitive" as const } },
@@ -41,22 +41,35 @@ export async function GET(req: NextRequest) {
           serial: true,
           pin: true,
           status: true,
+          usageCount: true,
+          maxUses: true,
           assignedTo: true,
-          usedBy: true,
-          usedAt: true,
           createdAt: true,
+          session: {
+            select: { id: true, name: true },
+          },
+          usages: {
+            orderBy: { usedAt: "desc" },
+            select: {
+              usedAt: true,
+              term: { select: { name: true } },
+              student: {
+                select: { firstName: true, lastName: true, regNumber: true },
+              },
+            },
+          },
         },
       }),
       prisma.scratchCard.count({ where }),
     ]);
 
     // Summary counts
-    const [unused, used, disabled] = await Promise.all([
+    const [active, exhausted, disabled] = await Promise.all([
       prisma.scratchCard.count({
-        where: { schoolId: auth!.schoolId, status: "UNUSED" },
+        where: { schoolId: auth!.schoolId, status: "ACTIVE" },
       }),
       prisma.scratchCard.count({
-        where: { schoolId: auth!.schoolId, status: "USED" },
+        where: { schoolId: auth!.schoolId, status: "EXHAUSTED" },
       }),
       prisma.scratchCard.count({
         where: { schoolId: auth!.schoolId, status: "DISABLED" },
@@ -66,7 +79,12 @@ export async function GET(req: NextRequest) {
     return successResponse(
       {
         cards,
-        summary: { unused, used, disabled, total: unused + used + disabled },
+        summary: {
+          active,
+          exhausted,
+          disabled,
+          total: active + exhausted + disabled,
+        },
         pagination: {
           total,
           page,
@@ -83,7 +101,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ── POST /api/scratch-cards ────────────────────────
-// Generate a batch of scratch cards
+// Cards are always tied to the ACTIVE session
 export async function POST(req: NextRequest) {
   const { auth, error } = requireAuth(req, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   if (error) return error;
@@ -98,7 +116,15 @@ export async function POST(req: NextRequest) {
 
     const { quantity, assignedTo } = parsed.data;
 
-    // If assigning to a student, verify they exist in this school
+    // ── Cards MUST be tied to the active session ───
+    const { activePeriod, error: periodError } = await getActivePeriod(
+      auth!.schoolId,
+    );
+    if (periodError) return periodError;
+
+    const { session } = activePeriod!;
+
+    // Verify student if pre-assigning
     if (assignedTo) {
       const student = await prisma.student.findFirst({
         where: { id: assignedTo, schoolId: auth!.schoolId },
@@ -108,7 +134,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Get school slug for serial generation
     const school = await prisma.school.findUnique({
       where: { id: auth!.schoolId },
       select: { slug: true },
@@ -118,7 +143,7 @@ export async function POST(req: NextRequest) {
       return errorResponse("School not found", 404);
     }
 
-    // Generate cards one by one to ensure unique serials + PINs
+    // Generate cards with unique serials + PINs
     const cards = [];
 
     for (let i = 0; i < quantity; i++) {
@@ -131,14 +156,13 @@ export async function POST(req: NextRequest) {
         serial,
         pin,
         schoolId: auth!.schoolId,
+        sessionId: session.id, // ← lock to active session
         assignedTo: assignedTo ?? null,
       });
     }
 
-    // Bulk insert all generated cards
     await prisma.scratchCard.createMany({ data: cards });
 
-    // Return the generated cards
     const created = await prisma.scratchCard.findMany({
       where: {
         schoolId: auth!.schoolId,
@@ -149,8 +173,11 @@ export async function POST(req: NextRequest) {
         serial: true,
         pin: true,
         status: true,
+        usageCount: true,
+        maxUses: true,
         assignedTo: true,
         createdAt: true,
+        session: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -158,9 +185,11 @@ export async function POST(req: NextRequest) {
     return successResponse(
       {
         generated: created.length,
+        session: session.name,
+        usesPerCard: 4,
         cards: created,
       },
-      `${created.length} scratch card(s) generated successfully`,
+      `${created.length} scratch card(s) generated for ${session.name} session`,
       201,
     );
   } catch (err) {

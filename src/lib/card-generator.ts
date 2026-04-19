@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "./prisma";
 
-// Generates serial: GRE-2026-000001
 export async function generateSerial(
   schoolSlug: string,
   schoolId: string,
@@ -14,22 +13,19 @@ export async function generateSerial(
     where: { schoolId },
   });
 
-  // offset ensures each card in a batch gets a unique sequence
   const sequence = String(count + offset + 1).padStart(6, "0");
   return `${prefix}-${year}-${sequence}`;
 }
 
-// Generates a unique 12-digit numeric PIN
 export function generatePin(): string {
   return Array.from({ length: 12 }, () =>
     crypto.randomInt(0, 10).toString(),
   ).join("");
 }
 
-// Ensures PIN is globally unique in DB
 export async function generateUniquePin(): Promise<string> {
   let pin: string;
-  let exists = true;
+  let exists: boolean = true;
 
   do {
     pin = generatePin();

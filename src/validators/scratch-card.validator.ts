@@ -7,12 +7,11 @@ export const generateCardsSchema = z.object({
     .min(1, "Minimum 1 card")
     .max(500, "Maximum 500 cards per batch"),
 
-  assignedTo: z.string().optional().nullable(), // optionally pre-assign to a student
+  assignedTo: z.string().optional().nullable(),
 });
 
 export const validateCardSchema = z.object({
   regNumber: z.string().min(1, "Registration number is required"),
-
   pin: z
     .string()
     .length(12, "PIN must be exactly 12 digits")
