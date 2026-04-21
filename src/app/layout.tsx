@@ -1,35 +1,24 @@
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/providers/QueryProvider";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EduCore - School Management System",
-  description: "Modern School Management System",
+  title: "EduCore — School Management System",
+  description: "Modern SaaS School Management Platform",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      className=
-      {`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning `{">"}`
-      <body className="min-h-full flex flex-col">
+      <body className={geist.className}>
         <QueryProvider>
           {children}
           <Toaster richColors position="top-right" />
