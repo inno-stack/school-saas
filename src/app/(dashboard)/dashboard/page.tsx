@@ -17,6 +17,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const { user } = useRequireAuth();
@@ -56,7 +57,7 @@ export default function DashboardPage() {
   return (
     <div>
       <Header
-        title={`Welcome back, ${user.firstName}! 👋`}
+        title={`Welcome back, ${user.firstName}!`}
         subtitle={user.school?.name}
       />
 
@@ -168,7 +169,7 @@ export default function DashboardPage() {
               ].map((action) => {
                 const Icon = action.icon;
                 return (
-                  <a
+                  <Link // ← FIXED: use Next.js Link
                     key={action.label}
                     href={action.href}
                     className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50 transition-all group"
@@ -181,7 +182,7 @@ export default function DashboardPage() {
                     <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">
                       {action.label}
                     </span>
-                  </a>
+                  </Link>
                 );
               })}
             </CardContent>

@@ -7,7 +7,7 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EduCore — School Management System",
+  title: "InnoCore — School Management System",
   description: "Modern SaaS School Management Platform",
 };
 

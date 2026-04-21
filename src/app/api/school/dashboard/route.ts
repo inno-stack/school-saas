@@ -10,18 +10,25 @@ export async function GET(req: NextRequest) {
 
   try {
     // Parallel queries for performance
-    const [totalTeachers, totalParents, school] = await Promise.all([
-      prisma.user.count({
-        where: { schoolId: auth!.schoolId, role: "TEACHER", isActive: true },
-      }),
-      prisma.user.count({
-        where: { schoolId: auth!.schoolId, role: "PARENT", isActive: true },
-      }),
-      prisma.school.findUnique({
-        where: { id: auth!.schoolId },
-        select: { name: true, slug: true, createdAt: true },
-      }),
-    ]);
+    const [totalTeachers, totalParents, totalStudents, totalResults, school] =
+      await Promise.all([
+        prisma.user.count({
+          where: { schoolId: auth!.schoolId, role: "TEACHER", isActive: true },
+        }),
+        prisma.user.count({
+          where: { schoolId: auth!.schoolId, role: "PARENT", isActive: true },
+        }),
+        prisma.student.count({
+          where: { schoolId: auth!.schoolId, status: "ACTIVE" },
+        }),
+        prisma.result.count({
+          where: { schoolId: auth!.schoolId, isPublished: true },
+        }),
+        prisma.school.findUnique({
+          where: { id: auth!.schoolId },
+          select: { name: true, slug: true, createdAt: true },
+        }),
+      ]);
 
     return successResponse(
       {
@@ -29,7 +36,8 @@ export async function GET(req: NextRequest) {
         stats: {
           totalTeachers,
           totalParents,
-          // We'll add students, classes etc. as we build those modules
+          totalStudents,
+          totalResults,
         },
       },
       "Dashboard data fetched successfully",

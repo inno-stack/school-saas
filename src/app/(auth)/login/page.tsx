@@ -68,7 +68,7 @@ export default function LoginPage() {
             <GraduationCap className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">
-            EduCore
+            InnoCore
           </h1>
           <p className="text-blue-300 mt-1 text-sm">School Management System</p>
         </div>

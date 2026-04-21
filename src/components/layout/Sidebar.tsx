@@ -151,7 +151,7 @@ export function Sidebar() {
           <Logo className="w-5 h-5 text-white" />
         </div>
         <div>
-          <p className="font-bold text-base leading-tight">EduCore</p>
+          <p className="font-bold text-base leading-tight">InnoCore</p>
           <p className="text-xs text-slate-400 leading-tight truncate max-w-[130px]">
             {user?.school?.name ?? "System"}
           </p>

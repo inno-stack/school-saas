@@ -71,7 +71,7 @@ export default function RegisterPage() {
               Registration Successful!
             </h2>
             <p className="text-slate-500 mb-2">
-              Your school has been registered on EduCore.
+              Your school has been registered on InnoCore.
             </p>
             <p className="text-sm bg-slate-100 rounded-lg px-4 py-2 font-mono text-slate-700 mb-6">
               Slug: <strong>{schoolSlug}</strong>
@@ -99,7 +99,7 @@ export default function RegisterPage() {
             Register Your School
           </h1>
           <p className="text-blue-300 text-sm mt-1">
-            Get started with EduCore in minutes
+            Get started with InnoCore in minutes
           </p>
         </div>
 
