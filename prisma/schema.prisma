@@ -168,6 +168,8 @@ model Student {
   @@index([schoolId])
   @@index([regNumber])
   @@index([parentId])
+  @@index([status])
+   @@index([schoolId, status])   // ← ADD composite for filtered lists
   @@map("students")
    results   Result[]
    cardUsages    CardUsage[]  
@@ -368,6 +370,8 @@ model Result {
   @@index([schoolId])
   @@index([classId, termId])
   @@index([studentId])
+  @@index([isPublished])                // ← ADD for faster published queries
+   @@index([termId]) 
   @@map("results")
 }
 
@@ -464,6 +468,8 @@ model ScratchCard {
   @@index([schoolId])
   @@index([pin])
   @@index([sessionId])
+   @@index([serial])
+   @@index([status])             // ← ADD for status filtering
   @@map("scratch_cards")
 }
 
