@@ -63,7 +63,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export default function ParentsPage() {
-  useRequireAuth(["SCHOOL_ADMIN"]);
+  useRequireAuth(["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");

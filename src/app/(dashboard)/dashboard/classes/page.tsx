@@ -38,7 +38,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export default function ClassesPage() {
-  useRequireAuth(["SCHOOL_ADMIN", "TEACHER"]);
+  useRequireAuth(["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN"]);
   const qc = useQueryClient();
 
   const [expandedId, setExpandedId] = useState<string | null>(null);

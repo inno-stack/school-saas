@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthState>()(
       logout: () => set({ user: null, accessToken: null, isAuth: false }),
     }),
     {
-      name: "educore-auth",
+      name: "InnoCore-auth",
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,

@@ -61,7 +61,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function StudentsPage() {
-  useRequireAuth(["SCHOOL_ADMIN", "TEACHER"]);
+  useRequireAuth(["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN"]);
 
   const qc = useQueryClient();
   const [search, setSearch] = useState("");

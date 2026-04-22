@@ -1,0 +1,31 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="eduGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+  </defs>
+
+  <path 
+    d="M40 140C40 140 70 130 100 130C130 130 160 140 160 140V70C160 70 130 60 100 60C70 60 40 70 40 70V140Z" 
+    stroke="url(#eduGrad)" 
+    stroke-width="8" 
+    stroke-linejoin="round"
+  />
+
+  <rect x="96" y="80" width="8" height="80" rx="4" fill="url(#eduGrad)" />
+  
+  <path 
+    d="M100 30L150 55L100 80L50 55L100 30Z" 
+    fill="url(#eduGrad)" 
+  />
+  <path 
+    d="M150 55V75" 
+    stroke="#fbbf24" 
+    stroke-width="4" 
+    stroke-linecap="round"
+  />
+
+  <circle cx="50" cy="55" r="4" fill="#fbbf24" />
+  <circle cx="150" cy="55" r="4" fill="#fbbf24" />
+</svg>

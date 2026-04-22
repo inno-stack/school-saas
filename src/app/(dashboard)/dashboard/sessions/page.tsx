@@ -53,7 +53,7 @@ const TERM_LABELS: Record<string, string> = {
 };
 
 export default function SessionsPage() {
-  useRequireAuth(["SCHOOL_ADMIN"]);
+  useRequireAuth(["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   const qc = useQueryClient();
 
   const [openSession, setOpenSession] = useState(false);

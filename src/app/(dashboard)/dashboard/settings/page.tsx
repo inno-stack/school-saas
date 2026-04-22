@@ -40,7 +40,7 @@ type ProfileForm = z.infer<typeof profileSchema>;
 type SettingsForm = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
-  useRequireAuth(["SCHOOL_ADMIN"]);
+  useRequireAuth(["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   const qc = useQueryClient();
 
   const { data: profile } = useQuery({

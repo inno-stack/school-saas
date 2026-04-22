@@ -48,7 +48,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export default function TeachersPage() {
-  useRequireAuth(["SCHOOL_ADMIN"]);
+  useRequireAuth(["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");

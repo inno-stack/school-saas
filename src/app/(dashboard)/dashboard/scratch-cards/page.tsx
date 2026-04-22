@@ -50,7 +50,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function ScratchCardsPage() {
-  useRequireAuth(["SCHOOL_ADMIN"]);
+  useRequireAuth(["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   const qc = useQueryClient();
 
   const [genDialog, setGenDialog] = useState(false);

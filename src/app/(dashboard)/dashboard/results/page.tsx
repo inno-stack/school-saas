@@ -52,7 +52,7 @@ const PERF_COLORS: Record<string, string> = {
 };
 
 export default function ResultsPage() {
-  useRequireAuth(["SCHOOL_ADMIN", "TEACHER"]);
+  useRequireAuth(["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN"]);
   const qc = useQueryClient();
 
   const [selectedClass, setSelectedClass] = useState("");
