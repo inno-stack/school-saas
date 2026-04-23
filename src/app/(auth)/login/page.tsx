@@ -145,6 +145,16 @@ export default function LoginPage() {
               </Button>
             </form>
 
+            <div className="mt-4 pt-4 border-t border-slate-200 text-center">
+              <Link
+                href="/check-result"
+                className="text-sm text-slate-500 hover:text-blue-600 flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <GraduationCap className="w-4 h-4" />
+                Check your result with a scratch card
+              </Link>
+            </div>
+
             <div className="mt-6 text-center text-sm text-slate-500">
               Don&apos;t have an account?{" "}
               <Link

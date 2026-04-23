@@ -8,6 +8,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/logout",
   "/api/results/verify",
   "/api/scratch-cards/validate",
+  "/api/scratch-cards/validate-pdf",
 ];
 
 const ROLE_ROUTES: Record<string, string[]> = {

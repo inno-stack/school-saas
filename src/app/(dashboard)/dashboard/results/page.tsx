@@ -146,21 +146,73 @@ export default function ResultsPage() {
   });
 
   // Download PDF
-  async function downloadPdf(studentId: string, termId: string, name: string) {
+  async function downloadPdf(
+    studentId: string,
+    termId: string | undefined,
+    name: string,
+  ) {
+    // Guard: ensure we have a valid termId
+    if (!termId) {
+      toast.error(
+        "Could not determine the active term. Please refresh the page.",
+      );
+      return;
+    }
+
+    const toastId = toast.loading("Generating PDF...");
+
     try {
       const response = await api.get(
         `/results/pdf?studentId=${studentId}&termId=${termId}`,
         { responseType: "blob" },
       );
-      const url = URL.createObjectURL(new Blob([response.data]));
+
+      // Check the response is actually a PDF (not an error JSON)
+      const contentType = response.headers["content-type"] ?? "";
+      if (!contentType.includes("application/pdf")) {
+        // The server returned an error as JSON — parse and show it
+        const text = await (response.data as Blob).text();
+        try {
+          const json = JSON.parse(text);
+          toast.error(json.message ?? "Failed to generate PDF", {
+            id: toastId,
+          });
+        } catch {
+          toast.error("Failed to generate PDF", { id: toastId });
+        }
+        return;
+      }
+
+      // Create download link
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = `Result_${name}.pdf`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      toast.success("PDF downloaded!");
-    } catch {
-      toast.error("Failed to download PDF");
+
+      toast.success("PDF downloaded successfully!", { id: toastId });
+    } catch (err: any) {
+      console.error("[PDF_DOWNLOAD]", err);
+
+      // Try to extract the error message from the blob response
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          toast.error(json.message ?? "Failed to download PDF", {
+            id: toastId,
+          });
+          return;
+        } catch {}
+      }
+
+      toast.error(err.response?.data?.message ?? "Failed to download PDF", {
+        id: toastId,
+      });
     }
   }
 
