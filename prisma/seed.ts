@@ -1,18 +1,14 @@
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL!,
-});
-
-const prisma = new PrismaClient({ adapter });
+// Use the standard client for the seeding process
+const prisma = new PrismaClient();
 
 async function main() {
   const email = "superadmin@educore.com";
   const password = "SuperAdmin@123";
 
-  // Check if super admin already exists
+  // 1. Check for existing super admin
   const existing = await prisma.user.findUnique({
     where: { email },
   });
@@ -22,21 +18,18 @@ async function main() {
     return;
   }
 
-  // Create a system school for super admin
-  let systemSchool = await prisma.school.findUnique({
+  // 2. Ensure System School exists
+  const systemSchool = await prisma.school.upsert({
     where: { slug: "system" },
+    update: {},
+    create: {
+      name: "EduCore System",
+      slug: "system",
+      email: "system@educore.com",
+    },
   });
 
-  if (!systemSchool) {
-    systemSchool = await prisma.school.create({
-      data: {
-        name: "EduCore System",
-        slug: "system",
-        email: "system@educore.com",
-      },
-    });
-  }
-
+  // 3. Hash and Create
   const hashedPassword = await bcrypt.hash(password, 12);
 
   const superAdmin = await prisma.user.create({
@@ -50,10 +43,7 @@ async function main() {
     },
   });
 
-  console.log("✅ Super admin created:");
-  console.log("   Email:   ", superAdmin.email);
-  console.log("   Password:", password);
-  console.log("   Role:    ", superAdmin.role);
+  console.log("✅ Super admin created successfully.");
 }
 
 main()
