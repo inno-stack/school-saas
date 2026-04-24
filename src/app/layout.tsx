@@ -1,10 +1,11 @@
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/providers/QueryProvider";
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+// 1. Change the import source
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 
-const geist = Geist({ subsets: ["latin"] });
+// 2. Remove the 'const geist = ...' configuration line
 
 export const metadata: Metadata = {
   title: "InnoCore — School Management System",
@@ -18,7 +19,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={geist.className}>
+      {/* 3. Use GeistSans.className here */}
+      <body className={GeistSans.className}>
         <QueryProvider>
           {children}
           <Toaster richColors position="top-right" />

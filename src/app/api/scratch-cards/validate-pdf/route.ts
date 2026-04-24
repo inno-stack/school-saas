@@ -6,6 +6,8 @@ import { errorResponse } from "@/lib/response";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
 import { createElement } from "react";
+import type { DocumentProps }      from "@react-pdf/renderer";
+import type { ReactElement }       from "react";
 
 // ── POST /api/scratch-cards/validate-pdf ──────────
 // Public — validates PIN + returns PDF (no extra card use consumed)
@@ -196,25 +198,31 @@ export async function POST(req: NextRequest) {
         { range: "0 - 44", grade: "F", description: "Fail", remark: "Poor" },
       ],
     };
-
-    // ── 8. Generate PDF ────────────────────────────
-    const pdfBuffer = await renderToBuffer(
-      createElement(ResultSheet, { data: pdfData }),
-    );
+// ── Render PDF to binary buffer ────────────────────
+// Cast is safe — ResultSheet renders a <Document> at its root.
+const pdfBuffer = await renderToBuffer(
+  createElement(ResultSheet, { data: pdfData }) as ReactElement<DocumentProps>
+);
 
     const filename =
       `Result_${result.student.lastName}_${result.term.name}_${result.session.name}.pdf`
         .replace(/\//g, "-")
         .replace(/\s+/g, "_");
+        
+// ── Convert Buffer → Uint8Array for Web Response API ──
+// Required because TypeScript's BodyInit does not accept Node.js Buffer
+// directly, but does accept Uint8Array which Buffer extends
+const uint8 = new Uint8Array(pdfBuffer);
 
-    return new Response(pdfBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": pdfBuffer.length.toString(),
-      },
-    });
+return new Response(uint8, {
+  status: 200,
+  headers: {
+    "Content-Type":        "application/pdf",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Content-Length":      uint8.byteLength.toString(),
+  },
+});
+
   } catch (err) {
     console.error("[VALIDATE_PDF]", err);
     return errorResponse("Failed to generate PDF", 500);

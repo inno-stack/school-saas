@@ -1,3 +1,6 @@
+// ── Import Statements ─────────────────────────────────────────────────────
+// Importing necessary components and libraries
+
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +30,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-// ── Validation ─────────────────────────────────────
+// ── Validation ─────────────────────────────────────────────
+// Defining the validation schema using Zod
+
 const schema = z.object({
   regNumber: z.string().min(1, "Registration number is required"),
   pin: z

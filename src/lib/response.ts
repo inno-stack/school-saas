@@ -14,7 +14,12 @@ export function errorResponse(
   errors?: unknown,
 ) {
   return NextResponse.json(
-    { success: false, message, ...(errors && { errors }) },
+    { 
+      success: false, 
+      message, 
+      // If errors exists, spread the object; otherwise spread an empty object
+      ...(errors ? { errors } : {}) 
+    },
     { status },
   );
 }

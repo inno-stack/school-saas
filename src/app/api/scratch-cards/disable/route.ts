@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { disableCardSchema } from "@/validators/scratch-card.validator";
 import { NextRequest } from "next/server";
+// 1. Import the CardStatus enum from Prisma
+import { CardStatus } from "@prisma/client";
 
 // ── POST /api/scratch-cards/disable ───────────────
 export async function POST(req: NextRequest) {
@@ -19,19 +21,19 @@ export async function POST(req: NextRequest) {
 
     const { cardIds } = parsed.data;
 
-    // Only disable UNUSED cards that belong to this school
+    // 2. Use CardStatus.ACTIVE instead of "UNUSED"
     const { count } = await prisma.scratchCard.updateMany({
       where: {
         id: { in: cardIds },
         schoolId: auth!.schoolId,
-        status: "UNUSED", // can't disable already used cards
+        status: CardStatus.ACTIVE, 
       },
-      data: { status: "DISABLED" },
+      data: { status: CardStatus.DISABLED },
     });
 
     if (count === 0) {
       return errorResponse(
-        "No eligible cards found. Only unused cards can be disabled.",
+        "No eligible cards found. Only active cards can be disabled.",
         400,
       );
     }

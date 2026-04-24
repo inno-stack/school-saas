@@ -20,9 +20,9 @@ export const updateSchoolProfileSchema = z.object({
 
 export const updateSchoolSettingsSchema = z.object({
   termName: z
-    .enum(["Term", "Semester"], {
-      errorMap: () => ({ message: "termName must be 'Term' or 'Semester'" }),
-    })
+   
+
+.enum(["Term", "Semester"], "termName must be 'Term' or 'Semester'")
     .optional(),
 
   resultPin: z.boolean().optional(),

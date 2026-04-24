@@ -32,20 +32,18 @@ export const updateSessionSchema = z.object({
 });
 
 export const createTermSchema = z.object({
-  name: z.enum(["FIRST", "SECOND", "THIRD"], {
-    errorMap: () => ({
-      message: "Term name must be FIRST, SECOND, or THIRD",
-    }),
-  }),
-});
+  name: z.enum(
+    ["FIRST", "SECOND", "THIRD"], 
+    { message: "Term name must be FIRST, SECOND, or THIRD" }
+  ),
+  });
 
 export const updateTermSchema = z.object({
   name: z
-    .enum(["FIRST", "SECOND", "THIRD"], {
-      errorMap: () => ({
-        message: "Term name must be FIRST, SECOND, or THIRD",
-      }),
-    })
+    .enum(
+      ["FIRST", "SECOND", "THIRD"], 
+      "Term name must be FIRST, SECOND, or THIRD" // Simple string is safer for TS
+    )
     .optional(),
 });
 

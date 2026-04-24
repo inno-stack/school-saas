@@ -168,7 +168,9 @@ export default function ResultsPage() {
       );
 
       // Check the response is actually a PDF (not an error JSON)
-      const contentType = response.headers["content-type"] ?? "";
+      const rawContentType = response.headers["content-type"];
+      const contentType = typeof rawContentType === "string" ? rawContentType : "";
+      
       if (!contentType.includes("application/pdf")) {
         // The server returned an error as JSON — parse and show it
         const text = await (response.data as Blob).text();

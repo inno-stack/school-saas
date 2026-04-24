@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
         ],
       }),
     };
-
+// ── Fetch paginated scratch cards ──────────────────
     const [cards, total] = await Promise.all([
       prisma.scratchCard.findMany({
         where,
@@ -41,13 +41,14 @@ export async function GET(req: NextRequest) {
           serial: true,
           pin: true,
           status: true,
-          usageCount: true,
-          maxUses: true,
+          usageCount: true,    // ← how many times used out of maxUses
+          maxUses: true,        // ← always 4 in current system
           assignedTo: true,
           createdAt: true,
           session: {
             select: { id: true, name: true },
           },
+           // ── Include usage history for the card list view ──
           usages: {
             orderBy: { usedAt: "desc" },
             select: {

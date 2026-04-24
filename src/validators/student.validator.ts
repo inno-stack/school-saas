@@ -13,9 +13,7 @@ export const createStudentSchema = z.object({
 
   middleName: z.string().max(50).optional().nullable(),
 
-  gender: z.enum(["MALE", "FEMALE"], {
-    errorMap: () => ({ message: "Gender must be MALE or FEMALE" }),
-  }),
+gender: z.enum(["MALE", "FEMALE"], "Gender must be MALE or FEMALE"),
 
   dateOfBirth: z
     .string()

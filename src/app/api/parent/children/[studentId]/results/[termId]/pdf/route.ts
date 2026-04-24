@@ -3,9 +3,12 @@ import { requireAuth } from "@/lib/auth-guard";
 import { getOrdinal } from "@/lib/grade-engine";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { renderToBuffer} from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
 import { createElement } from "react";
+import type { DocumentProps }      from "@react-pdf/renderer";
+import type { ReactElement }       from "react";
+
 
 // ── GET /api/parent/children/[studentId]/results/[termId]/pdf
 export async function GET(
@@ -164,23 +167,32 @@ export async function GET(
       ],
     };
 
-    const pdfBuffer = await renderToBuffer(
-      createElement(ResultSheet, { data: pdfData }),
-    );
+// ── Render the result sheet to a PDF binary buffer ─
+const pdfBuffer = await renderToBuffer(
+  createElement(ResultSheet, { data: pdfData }) as ReactElement<DocumentProps>
+);
 
+
+    // ── Build safe filename from student + term info ───
     const filename =
       `Result_${result.student.lastName}_${result.term.name}_Term_${result.session.name}.pdf`
         .replace(/\//g, "-")
         .replace(/\s+/g, "_");
 
-    return new Response(pdfBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": pdfBuffer.length.toString(),
-      },
-    });
+  // ── Convert Buffer → Uint8Array for Web Response API compatibility ──
+// Node.js Buffer is not directly assignable to BodyInit in TypeScript,
+// but Uint8Array is — and Buffer is a subclass so this is safe.
+   const uint8 = new Uint8Array(pdfBuffer);
+
+return new Response(uint8, {
+  status: 200,
+  headers: {
+    "Content-Type":        "application/pdf",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Content-Length":      uint8.byteLength.toString(),
+  },
+});
+
   } catch (err) {
     console.error("[PARENT_PDF]", err);
     return errorResponse("Failed to generate PDF", 500);

@@ -6,6 +6,8 @@ import { errorResponse } from "@/lib/response";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
 import { createElement } from "react";
+import type { DocumentProps }      from "@react-pdf/renderer";
+import type { ReactElement }       from "react";
 
 // ── GET /api/results/pdf?studentId=x&termId=y ─────
 export async function GET(req: NextRequest) {
@@ -151,23 +153,30 @@ export async function GET(req: NextRequest) {
       ],
     };
 
-    // ── Render PDF to buffer ───────────────────────
-    const pdfBuffer = await renderToBuffer(
-      createElement(ResultSheet, { data: pdfData }),
-    );
+   // ── Render result sheet to downloadable PDF buffer ─
+// Cast required: renderToBuffer expects DocumentProps at root.
+// ResultSheet wraps <Document> internally so the cast is safe.
+const pdfBuffer = await renderToBuffer(
+  createElement(ResultSheet, { data: pdfData }) as ReactElement<DocumentProps>
+);
 
-    // ── Return as downloadable PDF ─────────────────
+    // ── Build safe filename from student + term info ───
     const filename =
       `Result_${result.student.lastName}_${result.term.name}_${result.session.name}.pdf`
         .replace(/\//g, "-")
         .replace(/\s+/g, "_");
 
-    return new Response(pdfBuffer, {
+        // ── Convert Buffer → Uint8Array for Web Response API compatibility ──
+// Node.js Buffer is not directly assignable to BodyInit in TypeScript,
+// but Uint8Array is — and Buffer is a subclass so this is safe.
+const uint8 = new Uint8Array(pdfBuffer);
+
+    return new Response(uint8, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": pdfBuffer.length.toString(),
+        "Content-Length": uint8.byteLength.toString(),
       },
     });
   } catch (err) {
