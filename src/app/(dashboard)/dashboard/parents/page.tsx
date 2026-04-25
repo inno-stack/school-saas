@@ -1,3 +1,5 @@
+// This file is the main page for managing parents in the dashboard. It includes a table of parents with search and pagination, as well as actions to link parents to students and deactivate accounts.
+
 "use client";
 import { Header } from "@/components/layout/Header";
 import {
@@ -28,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 import {
   Select,
   SelectContent,
@@ -62,6 +65,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+/// @description Parent management page in the dashboard.
 export default function ParentsPage() {
   useRequireAuth(["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   const qc = useQueryClient();
@@ -78,15 +82,16 @@ export default function ParentsPage() {
     limit: "20",
     ...(search && { search }),
   });
-
+  // ── Fetch parents with pagination and search ──────────────────────
   const { data, isLoading } = useQuery({
     queryKey: ["parents", page, search],
+    // The API should support pagination and search via query parameters
     queryFn: async () => {
       const { data } = await api.get(`/users/parents?${params}`);
       return data.data;
     },
   });
-
+  // ── Fetch students for linking ──────────────────────
   const { data: studentsData } = useQuery({
     queryKey: ["students-list"],
     queryFn: async () => {
@@ -94,7 +99,7 @@ export default function ParentsPage() {
       return data.data.students as any[];
     },
   });
-
+  // ── Mutations for deactivating parents and linking to students ──────────────────────
   const deactivate = useMutation({
     mutationFn: (id: string) => api.delete(`/users/parents/${id}`),
     onSuccess: () => {
@@ -104,13 +109,14 @@ export default function ParentsPage() {
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed"),
   });
-
+  // Link parent to student mutation
   const linkChild = useMutation({
     mutationFn: () =>
       api.post("/parent/link-child", {
         parentId: linkParent,
         studentId: linkStudent,
       }),
+
     onSuccess: () => {
       toast.success("Parent linked to student!");
       setLinkDialog(false);
@@ -119,7 +125,7 @@ export default function ParentsPage() {
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed"),
   });
-
+  // ── Render ──────────────────────
   return (
     <div>
       <Header
@@ -161,125 +167,130 @@ export default function ParentsPage() {
           </p>
         )}
 
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead>Parent</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading &&
-                Array(6)
-                  .fill(0)
-                  .map((_, i) => (
-                    <TableRow key={i}>
-                      {Array(6)
-                        .fill(0)
-                        .map((_, j) => (
-                          <TableCell key={j}>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                        ))}
-                    </TableRow>
-                  ))}
-
-              {!isLoading && data?.parents?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-slate-500 font-medium">No parents yet</p>
-                  </TableCell>
+        {/* ── Top Stats ───────────────────────── */}
+        <ResponsiveTable>
+          <div className="bg-white ">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead>Parent</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
-              )}
+              </TableHeader>
+              <TableBody>
+                {isLoading &&
+                  Array(6)
+                    .fill(0)
+                    .map((_, i) => (
+                      <TableRow key={i}>
+                        {Array(6)
+                          .fill(0)
+                          .map((_, j) => (
+                            <TableCell key={j}>
+                              <Skeleton className="h-4 w-full" />
+                            </TableCell>
+                          ))}
+                      </TableRow>
+                    ))}
 
-              {!isLoading &&
-                data?.parents?.map((parent: any) => (
-                  <TableRow key={parent.id} className="hover:bg-slate-50">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className="bg-orange-100 text-orange-700 text-xs font-bold">
-                            {parent.firstName[0]}
-                            {parent.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-slate-800">
-                          {parent.firstName} {parent.lastName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-slate-500 text-sm">
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5" />
-                        {parent.email}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-slate-500 text-sm">
-                      {parent.phone ? (
-                        <div className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5" />
-                          {parent.phone}
-                        </div>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          parent.isActive
-                            ? "bg-green-100 text-green-700 border-0"
-                            : "bg-red-100 text-red-700 border-0"
-                        }
-                      >
-                        {parent.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-slate-400 text-sm">
-                      {new Date(parent.createdAt).toLocaleDateString("en-GB")}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="w-8 h-8"
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setLinkParent(parent.id);
-                              setLinkDialog(true);
-                            }}
-                          >
-                            <Link2 className="w-4 h-4 mr-2" /> Link to Student
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => setDeleteId(parent.id)}
-                            disabled={!parent.isActive}
-                          >
-                            <UserX className="w-4 h-4 mr-2" /> Deactivate
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {!isLoading && data?.parents?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="text-slate-500 font-medium">
+                        No parents yet
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </div>
+                )}
 
+                {!isLoading &&
+                  data?.parents?.map((parent: any) => (
+                    <TableRow key={parent.id} className="hover:bg-slate-50">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className="bg-orange-100 text-orange-700 text-xs font-bold">
+                              {parent.firstName[0]}
+                              {parent.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium text-slate-800">
+                            {parent.firstName} {parent.lastName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5" />
+                          {parent.email}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        {parent.phone ? (
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5" />
+                            {parent.phone}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            parent.isActive
+                              ? "bg-green-100 text-green-700 border-0"
+                              : "bg-red-100 text-red-700 border-0"
+                          }
+                        >
+                          {parent.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-slate-400 text-sm">
+                        {new Date(parent.createdAt).toLocaleDateString("en-GB")}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="w-8 h-8"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setLinkParent(parent.id);
+                                setLinkDialog(true);
+                              }}
+                            >
+                              <Link2 className="w-4 h-4 mr-2" /> Link to Student
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => setDeleteId(parent.id)}
+                              disabled={!parent.isActive}
+                            >
+                              <UserX className="w-4 h-4 mr-2" /> Deactivate
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </div>
+        </ResponsiveTable>
+        {/* Pagination controls */}
         {data?.pagination?.totalPages > 1 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-slate-500">

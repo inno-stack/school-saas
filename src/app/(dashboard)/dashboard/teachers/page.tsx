@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -60,7 +61,7 @@ export default function TeachersPage() {
     limit: "20",
     ...(search && { search }),
   });
-
+  // Teachers
   const { data, isLoading } = useQuery({
     queryKey: ["teachers", page, search],
     queryFn: async () => {
@@ -112,125 +113,129 @@ export default function TeachersPage() {
           </p>
         )}
 
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead>Teacher</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading &&
-                Array(6)
-                  .fill(0)
-                  .map((_, i) => (
-                    <TableRow key={i}>
-                      {Array(6)
-                        .fill(0)
-                        .map((_, j) => (
-                          <TableCell key={j}>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                        ))}
-                    </TableRow>
-                  ))}
-
-              {!isLoading && data?.teachers?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <UserCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-slate-500 font-medium">
-                      No teachers yet
-                    </p>
-                  </TableCell>
+        <ResponsiveTable>
+          <div className="bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead>Teacher</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
-              )}
+              </TableHeader>
+              <TableBody>
+                {isLoading &&
+                  Array(6)
+                    .fill(0)
+                    .map((_, i) => (
+                      <TableRow key={i}>
+                        {Array(6)
+                          .fill(0)
+                          .map((_, j) => (
+                            <TableCell key={j}>
+                              <Skeleton className="h-4 w-full" />
+                            </TableCell>
+                          ))}
+                      </TableRow>
+                    ))}
 
-              {!isLoading &&
-                data?.teachers?.map((teacher: any) => (
-                  <TableRow key={teacher.id} className="hover:bg-slate-50">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className="bg-green-100 text-green-700 text-xs font-bold">
-                            {teacher.firstName[0]}
-                            {teacher.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-slate-800">
-                          {teacher.firstName} {teacher.lastName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-slate-500 text-sm">
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5" />
-                        {teacher.email}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-slate-500 text-sm">
-                      {teacher.phone ? (
-                        <div className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5" />
-                          {teacher.phone}
-                        </div>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          teacher.isActive
-                            ? "bg-green-100 text-green-700 border-0"
-                            : "bg-red-100 text-red-700 border-0"
-                        }
-                      >
-                        {teacher.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-slate-400 text-sm">
-                      {new Date(teacher.createdAt).toLocaleDateString("en-GB")}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="w-8 h-8"
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link
-                              href={`/dashboard/teachers/${teacher.id}/edit`}
-                            >
-                              <Pencil className="w-4 h-4 mr-2" /> Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => setDeleteId(teacher.id)}
-                            disabled={!teacher.isActive}
-                          >
-                            <UserX className="w-4 h-4 mr-2" /> Deactivate
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {!isLoading && data?.teachers?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <UserCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="text-slate-500 font-medium">
+                        No teachers yet
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </div>
+                )}
+
+                {!isLoading &&
+                  data?.teachers?.map((teacher: any) => (
+                    <TableRow key={teacher.id} className="hover:bg-slate-50">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className="bg-green-100 text-green-700 text-xs font-bold">
+                              {teacher.firstName[0]}
+                              {teacher.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium text-slate-800">
+                            {teacher.firstName} {teacher.lastName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5" />
+                          {teacher.email}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        {teacher.phone ? (
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5" />
+                            {teacher.phone}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            teacher.isActive
+                              ? "bg-green-100 text-green-700 border-0"
+                              : "bg-red-100 text-red-700 border-0"
+                          }
+                        >
+                          {teacher.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-slate-400 text-sm">
+                        {new Date(teacher.createdAt).toLocaleDateString(
+                          "en-GB",
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="w-8 h-8"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/dashboard/teachers/${teacher.id}/edit`}
+                              >
+                                <Pencil className="w-4 h-4 mr-2" /> Edit
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => setDeleteId(teacher.id)}
+                              disabled={!teacher.isActive}
+                            >
+                              <UserX className="w-4 h-4 mr-2" /> Deactivate
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </div>
+        </ResponsiveTable>
 
         {data?.pagination?.totalPages > 1 && (
           <div className="flex items-center justify-between">

@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 // ── Validation ─────────────────────────────────────────────
-// Defining the validation schema using Zod
+// Defining the validation schema using Zod to ensure that the registration number and PIN inputs meet the required format before allowing form submission, enhancing user experience and preventing unnecessary API calls with invalid data.
 
 const schema = z.object({
   regNumber: z.string().min(1, "Registration number is required"),
@@ -44,6 +44,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 // ── Types ───────────────────────────────────────────
+// Defining TypeScript interfaces for the result data structure returned by the API and used within the component to ensure type safety and better code readability.
 interface SubjectResult {
   sn: number;
   name: string;
@@ -58,6 +59,7 @@ interface SubjectResult {
   classAverage: number | null;
 }
 
+// The ResultData interface defines the structure of the data returned from the API when a user checks their result. It includes information about the school, student, class, session, term, performance summary, attendance, subject results, psychomotor skills, social behaviour, comments from teachers and principals, and the grade key. This structured format allows for easy access and display of the relevant information in the UI.
 interface ResultData {
   school: {
     name: string;
@@ -112,6 +114,7 @@ interface ResultData {
 }
 
 // ── Grade colors ────────────────────────────────────
+// Helper functions to determine the appropriate text and background colors for grades and performance ratings, enhancing the visual representation of the results and making it easier for users to quickly identify their performance levels.
 function gradeColor(grade: string | null) {
   switch (grade) {
     case "A":
@@ -129,6 +132,7 @@ function gradeColor(grade: string | null) {
   }
 }
 
+// The gradeBg function returns the appropriate background and text color classes based on the grade value, allowing for consistent styling of grade indicators throughout the UI.
 function gradeBg(grade: string | null) {
   switch (grade) {
     case "A":
@@ -146,6 +150,7 @@ function gradeBg(grade: string | null) {
   }
 }
 
+// The PERF_COLORS constant defines a mapping of performance ratings to their corresponding background color classes, which can be used to visually differentiate performance levels in the UI.
 const PERF_COLORS: Record<string, string> = {
   Distinction: "bg-green-500",
   "Upper Credit": "bg-blue-500",
@@ -154,6 +159,7 @@ const PERF_COLORS: Record<string, string> = {
   Fail: "bg-red-500",
 };
 
+// The ratingLabel function converts the internal rating values for psychomotor and social behaviour skills into user-friendly labels that can be displayed in the UI, improving the clarity of the information presented to users.
 function ratingLabel(r: string | null) {
   switch (r) {
     case "EXCELLENT":
@@ -171,6 +177,7 @@ function ratingLabel(r: string | null) {
   }
 }
 
+// The termLabel function converts the internal term identifiers into more readable labels that can be displayed in the UI, making it easier for users to understand which term the results correspond to.
 function termLabel(term: string) {
   return term === "FIRST"
     ? "1st Term"
@@ -179,6 +186,7 @@ function termLabel(term: string) {
       : "3rd Term";
 }
 
+// The formatDate function takes a date string as input and formats it into a more human-readable format (e.g., "12 Jan 2024"). If the input is null, it returns a placeholder ("—"), ensuring that the UI remains consistent even when certain date information is missing.
 function formatDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", {
@@ -189,6 +197,7 @@ function formatDate(d: string | null) {
 }
 
 // ── Main Component ──────────────────────────────────
+// The CheckResultPage component is the main functional component that renders the result checking interface. It manages the state for the result data, form inputs, and UI interactions such as showing skills and downloading PDFs. It handles form submission to validate the scratch card and registration number, displays the results in a structured format, and provides options for users to download their results as a PDF or view additional details about their performance.
 export default function CheckResultPage() {
   const [result, setResult] = useState<ResultData | null>(null);
   const [lastPin, setLastPin] = useState("");
@@ -203,6 +212,7 @@ export default function CheckResultPage() {
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   // ── Submit ──────────────────────────────────────
+  // The onSubmit function is called when the user submits the form to check their result. It sends a POST request to the API with the registration number and PIN, and if successful, it updates the state with the result data and displays any relevant messages about the scratch card usage. If there's an error during the API call, it shows an error message to the user.
   async function onSubmit(values: FormData) {
     try {
       const { data } = await axios.post("/api/scratch-cards/validate", values);
@@ -220,6 +230,7 @@ export default function CheckResultPage() {
   }
 
   // ── Download PDF ────────────────────────────────
+  // The downloadPdf function allows users to download their result as a PDF file. It sends a POST request to the API to generate the PDF based on the last used registration number and PIN, and then triggers a download of the generated PDF file. It also handles loading states and error messages during the download process.
   async function downloadPdf() {
     if (!result || !lastPin || !lastReg) return;
     setDownloading(true);
@@ -251,6 +262,7 @@ export default function CheckResultPage() {
   }
 
   // ── UI ──────────────────────────────────────────
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
       {/* Background dots */}
@@ -262,7 +274,7 @@ export default function CheckResultPage() {
         }}
       />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 py-10">
+      <div className="relative z-10 max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-6 lg:py-10">
         {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-2xl mb-5">
@@ -282,49 +294,51 @@ export default function CheckResultPage() {
           <CardContent className="pt-6 pb-6">
             <form
               onSubmit={handleSubmit(onSubmit)}
-              className="flex flex-col sm:flex-row gap-4 items-end"
+              className="flex flex-col gap-4"
             >
-              {/* Reg Number */}
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-slate-700 font-medium">
-                  Registration Number
-                </Label>
-                <Input
-                  placeholder="e.g. GRE/2026/001"
-                  className={cn(
-                    "h-11 uppercase",
-                    errors.regNumber && "border-red-400",
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Reg Number */}
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-slate-700 font-medium">
+                    Registration Number
+                  </Label>
+                  <Input
+                    placeholder="e.g. GRE/2026/001"
+                    className={cn(
+                      "h-11 uppercase",
+                      errors.regNumber && "border-red-400",
+                    )}
+                    {...register("regNumber")}
+                  />
+                  {errors.regNumber && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.regNumber.message}
+                    </p>
                   )}
-                  {...register("regNumber")}
-                />
-                {errors.regNumber && (
-                  <p className="text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.regNumber.message}
-                  </p>
-                )}
-              </div>
+                </div>
 
-              {/* PIN */}
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-slate-700 font-medium">
-                  Scratch Card PIN
-                </Label>
-                <Input
-                  placeholder="12-digit PIN"
-                  maxLength={12}
-                  className={cn(
-                    "h-11 tracking-widest font-mono",
-                    errors.pin && "border-red-400",
+                {/* PIN */}
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-slate-700 font-medium">
+                    Scratch Card PIN
+                  </Label>
+                  <Input
+                    placeholder="12-digit PIN"
+                    maxLength={12}
+                    className={cn(
+                      "h-11 tracking-widest font-mono",
+                      errors.pin && "border-red-400",
+                    )}
+                    {...register("pin")}
+                  />
+                  {errors.pin && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.pin.message}
+                    </p>
                   )}
-                  {...register("pin")}
-                />
-                {errors.pin && (
-                  <p className="text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.pin.message}
-                  </p>
-                )}
+                </div>
               </div>
 
               <Button

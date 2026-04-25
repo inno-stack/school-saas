@@ -1,6 +1,11 @@
+/**
+ * @file src/app/(dashboard)/dashboard/page.tsx
+ * @description Role-aware dashboard home page.
+ * Fully responsive grid layout for all screen sizes.
+ */
+
 "use client";
 
-// ─── Framework & Library Imports ─────────────────────────────────────────────
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,20 +28,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-// ─── Dashboard Page ───────────────────────────────────────────────────────────
-// Main dashboard shown immediately after login.
-// Renders different Quick Actions depending on the authenticated user's role:
-//   - SUPER_ADMIN → platform-wide management links (schools, system users, etc.)
-//   - All other roles → school-level actions (students, results, settings, etc.)
 export default function DashboardPage() {
-  // Pull the authenticated user from the auth hook.
-  // Returns null until hydration is complete (prevents SSR flash).
   const { user } = useRequireAuth();
 
-  // ── Data Fetching ───────────────────────────────────────────────────────────
-
-  // Fetch school-level dashboard stats (students, teachers, parents, results).
-  // Only runs once the user object is available to avoid unauthenticated calls.
+  // ── Fetch dashboard stats ──────────────────────
   const { data: dashData, isLoading } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
@@ -46,8 +41,7 @@ export default function DashboardPage() {
     enabled: !!user,
   });
 
-  // Fetch all academic sessions to display the active period banner
-  // and populate the Academic Calendar card.
+  // ── Fetch sessions for academic calendar ───────
   const { data: sessionData } = useQuery({
     queryKey: ["sessions"],
     queryFn: async () => {
@@ -57,14 +51,10 @@ export default function DashboardPage() {
     enabled: !!user,
   });
 
-  // ── Derived State ───────────────────────────────────────────────────────────
-
-  // Resolve the currently active session and term from the sessions list.
-  // At most one session and one term can be active at a time (enforced by API).
+  // ── Find active session and term ───────────────
   const activeSession = sessionData?.find((s: any) => s.isActive);
   const activeTerm = activeSession?.terms?.find((t: any) => t.isActive);
 
-  // Convert the term enum value (FIRST | SECOND | THIRD) to a display label.
   const termLabel =
     activeTerm?.name === "FIRST"
       ? "1st Term"
@@ -72,11 +62,11 @@ export default function DashboardPage() {
         ? "2nd Term"
         : activeTerm?.name === "THIRD"
           ? "3rd Term"
-          : null; // null = no active term set yet
+          : null;
 
-  // ── Role-Aware Quick Actions ────────────────────────────────────────────────
-  // SUPER_ADMIN sees platform-management shortcuts.
-  // All other roles (SCHOOL_ADMIN, TEACHER) see school-operation shortcuts.
+  // ── Role-aware quick actions ───────────────────
+  // Super Admin sees system-level actions
+  // School Admin sees school management actions
   const quickActions =
     user?.role === "SUPER_ADMIN"
       ? [
@@ -156,59 +146,52 @@ export default function DashboardPage() {
           },
         ];
 
-  // Block render until the auth store has rehydrated from localStorage.
-  // Prevents a flash-redirect to /login on first load.
   if (!user) return null;
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div>
-      {/* Page header — shows the user's first name and their school name */}
       <Header
-        title={`Welcome back, ${user.firstName}!`}
+        title={`Welcome back, ${user.firstName}! `}
         subtitle={user.school?.name}
       />
 
-      <div className="p-6 space-y-6">
-        {/* ── Active Period Banner ──────────────────────────────────────────── */}
-        {/* Only rendered when an active session exists.
-            Shows the current session + term, or a warning if no term is set. */}
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+        {/* ── Active Period Banner ───────────────── */}
         {activeSession && (
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 text-white flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CalendarDays className="w-5 h-5 opacity-80" />
-              <div>
-                <p className="text-sm opacity-80">Current Academic Period</p>
-                <p className="font-bold text-lg">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 text-white flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <CalendarDays className="w-5 h-5 opacity-80 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs opacity-80">Current Academic Period</p>
+                <p className="font-bold text-sm lg:text-lg truncate">
                   {activeSession.name} — {termLabel ?? "No active term"}
                 </p>
               </div>
             </div>
-            <Badge className="bg-white/20 text-white border-0 text-xs">
+            <Badge className="bg-white/20 text-white border-0 text-xs flex-shrink-0">
               {termLabel ? "In Progress" : "Term not set"}
             </Badge>
           </div>
         )}
 
-        {/* ── Stats Grid ───────────────────────────────────────────────────── */}
-        {/* Shows skeleton placeholders while dashboard data is loading,
-            then renders the four key school metrics. */}
+        {/* ── Stats Grid ────────────────────────── */}
+        {/* 2 columns on mobile, 4 on desktop */}
         {isLoading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
             {Array(4)
               .fill(0)
               .map((_, i) => (
-                <Skeleton key={i} className="h-28 rounded-xl" />
+                <Skeleton key={i} className="h-24 lg:h-28 rounded-xl" />
               ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
             <StatCard
               title="Total Students"
               value={dashData?.stats?.totalStudents ?? 0}
               icon={GraduationCap}
               color="blue"
-              sub="Enrolled this year"
+              sub="Enrolled"
             />
             <StatCard
               title="Teachers"
@@ -223,7 +206,7 @@ export default function DashboardPage() {
               color="orange"
             />
             <StatCard
-              title="Results Published"
+              title="Results"
               value={dashData?.stats?.totalResults ?? 0}
               icon={FileText}
               color="purple"
@@ -231,35 +214,31 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Bottom Cards Row ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Quick Actions Card
-              Iterates the role-resolved quickActions array.
-              Each action renders as a navigable Link with a coloured icon. */}
+        {/* ── Bottom Grid ───────────────────────── */}
+        {/* Stacks vertically on mobile, side by side on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          {/* Quick Actions */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold text-slate-700">
+            <CardHeader className="pb-3 px-4 lg:px-6">
+              <CardTitle className="text-sm lg:text-base font-semibold text-slate-700">
                 Quick Actions
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3">
+            <CardContent className="grid grid-cols-2 gap-2 lg:gap-3 px-4 lg:px-6 pb-4 lg:pb-6">
               {quickActions.map((action) => {
-                // Dynamically resolve the Lucide icon component from the action config
                 const Icon = action.icon;
                 return (
                   <Link
                     key={action.label}
                     href={action.href}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50 transition-all group"
+                    className="flex items-center gap-2 lg:gap-3 p-2.5 lg:p-3 rounded-xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50 transition-all group"
                   >
-                    {/* Coloured icon badge */}
                     <div
-                      className={`w-8 h-8 rounded-lg ${action.color} flex items-center justify-center flex-shrink-0`}
+                      className={`w-7 h-7 lg:w-8 lg:h-8 rounded-lg ${action.color} flex items-center justify-center flex-shrink-0`}
                     >
-                      <Icon className="w-4 h-4 text-white" />
+                      <Icon className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-white" />
                     </div>
-                    {/* Action label — highlights blue on hover via parent group */}
-                    <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">
+                    <span className="text-xs lg:text-sm font-medium text-slate-700 group-hover:text-blue-600 leading-tight">
                       {action.label}
                     </span>
                   </Link>
@@ -268,39 +247,34 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Academic Calendar Card
-              Lists up to 4 sessions with their active status badge.
-              Shows a CTA to create the first session if none exist yet. */}
+          {/* Academic Calendar */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold text-slate-700">
+            <CardHeader className="pb-3 px-4 lg:px-6">
+              <CardTitle className="text-sm lg:text-base font-semibold text-slate-700">
                 Academic Calendar
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {/* Empty state */}
-              {sessionData?.length === 0 && (
+            <CardContent className="space-y-2 px-4 lg:px-6 pb-4 lg:pb-6">
+              {!sessionData?.length && (
                 <p className="text-sm text-slate-500 text-center py-4">
-                  No sessions created yet.{" "}
-                  <a
+                  No sessions yet.{" "}
+                  <Link
                     href="/dashboard/sessions"
                     className="text-blue-600 hover:underline"
                   >
                     Create one →
-                  </a>
+                  </Link>
                 </p>
               )}
-
-              {/* Session list — capped at 4 to keep the card compact */}
               {sessionData?.slice(0, 4).map((session: any) => (
                 <div
                   key={session.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200"
+                  className="flex items-center justify-between p-2.5 lg:p-3 rounded-lg bg-slate-50 border border-slate-200"
                 >
-                  <div className="flex items-center gap-3">
-                    <CalendarDays className="w-4 h-4 text-slate-500" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">
+                  <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+                    <CalendarDays className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">
                         {session.name}
                       </p>
                       <p className="text-xs text-slate-400">
@@ -308,9 +282,8 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                  {/* Only the active session shows this badge */}
                   {session.isActive && (
-                    <Badge className="bg-green-100 text-green-700 border-0 text-xs">
+                    <Badge className="bg-green-100 text-green-700 border-0 text-xs flex-shrink-0 ml-2">
                       Active
                     </Badge>
                   )}

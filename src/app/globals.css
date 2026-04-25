@@ -126,4 +126,38 @@
   html {
     @apply font-sans;
   }
+  /**
+ * Global responsive and touch improvements
+ * Ensures better mobile experience across all pages
+ */
+
+  /* Smooth scrolling everywhere */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Better tap targets on mobile */
+  @media (max-width: 1024px) {
+    button,
+    a,
+    [role="button"] {
+      min-height: 40px;
+    }
+  }
+
+  /* Prevent horizontal overflow on mobile */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Remove tap highlight on mobile */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Better font rendering */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }

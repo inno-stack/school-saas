@@ -1,3 +1,4 @@
+// This is the login page for the application. It allows users to enter their email and password to authenticate and access their dashboard. The form uses react-hook-form for handling form state and validation, and zod for schema validation. Upon successful login, the user is redirected to the dashboard, and a welcome toast message is displayed. If there is an error during login, an error toast message is shown. The page also includes a link for users to check their results with a scratch card and a link to register a new school if they don't have an account. The design features a modern card layout with a background pattern and a logo at the top. The page is responsive and optimized for different screen sizes.
 "use client";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+// Validation schema for the login form using zod to ensure proper email format and that the password field is not empty. This schema is used by react-hook-form to validate the form inputs before submission.
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
@@ -38,6 +40,7 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
+  // Handles the form submission for the login page. It sends a POST request to the /auth/login endpoint with the form values. If the login is successful, it updates the authentication state with the user data and access token, displays a welcome toast message, and redirects the user to the dashboard. If there is an error during login, it displays an error toast message with the appropriate error message.
   async function onSubmit(values: LoginForm) {
     try {
       const { data } = await api.post("/auth/login", values);
@@ -50,9 +53,9 @@ export default function LoginPage() {
       );
     }
   }
-
+  // The main return statement of the LoginPage component. It renders a full-screen login page with a background gradient and a subtle pattern. The page includes a centered card containing the login form, which consists of input fields for email and password, along with validation error messages. There are also links for checking results with a scratch card and registering a new school. The design is responsive and visually appealing, with a modern aesthetic.
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4 sm:p-6">
       {/* Background pattern */}
       <div
         className="absolute inset-0 opacity-5"
@@ -63,14 +66,16 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-2xl mb-4">
-            <GraduationCap className="w-8 h-8 text-white" />
+        <div className="text-center mb-6 lg:mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 lg:w-16 lg:h-16 rounded-2xl bg-blue-600 shadow-2xl mb-3 lg:mb-4">
+            <GraduationCap className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">
             InnoCore
           </h1>
-          <p className="text-blue-300 mt-1 text-sm">School Management System</p>
+          <p className="text-blue-300 mt-1 text-xs lg:text-sm">
+            School Management System
+          </p>
         </div>
 
         <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur">

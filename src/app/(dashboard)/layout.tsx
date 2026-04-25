@@ -1,4 +1,13 @@
+/**
+ * @file src/app/(dashboard)/layout.tsx
+ * @description Protected dashboard layout wrapper.
+ * - Handles hydration-safe auth guard
+ * - Renders sidebar + main content area
+ * - Mobile: adds top padding for hamburger button
+ */
+
 "use client";
+
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useAuthStore } from "@/store/auth.store";
 import { useRouter } from "next/navigation";
@@ -11,24 +20,23 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const { isAuth } = useAuthStore();
+
+  // ── Wait for Zustand to rehydrate from localStorage ─
+  // Without this, isAuth is false on first render → redirect
   const [hydrated, setHydrated] = useState(false);
 
-  // Wait for Zustand to rehydrate from localStorage
   useEffect(() => {
-    const handleHydration = () => {
-      setHydrated(true);
-    };
-
-    handleHydration();
+    setHydrated(true);
   }, []);
 
+  // ── Redirect unauthenticated users ─────────────
   useEffect(() => {
     if (hydrated && !isAuth) {
       router.replace("/login");
     }
   }, [hydrated, isAuth, router]);
 
-  // Don't render until hydrated — prevents flash redirect
+  // ── Show loading spinner while rehydrating ─────
   if (!hydrated) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -41,8 +49,19 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      {/* ── Sidebar (desktop: fixed left, mobile: drawer) ── */}
       <Sidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
+
+      {/* ── Main Content Area ──────────────────────────── */}
+      <main
+        className={[
+          "flex-1 overflow-auto min-w-0",
+          // On mobile: add top padding so content clears the hamburger button
+          "pt-16 lg:pt-0",
+        ].join(" ")}
+      >
+        {children}
+      </main>
     </div>
   );
 }

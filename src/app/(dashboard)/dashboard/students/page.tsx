@@ -51,6 +51,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-700",
@@ -173,7 +174,8 @@ export default function StudentsPage() {
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <ResponsiveTable>
+        <div className="bg-white">
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
@@ -293,6 +295,7 @@ export default function StudentsPage() {
             </TableBody>
           </Table>
         </div>
+        </ResponsiveTable>
 
         {/* Pagination */}
         {data?.pagination && data.pagination.totalPages > 1 && (

@@ -1,4 +1,9 @@
 "use client";
+{
+  /* @/app/(dashboard)/dashboard/scratch-cards/page.tsx */
+}
+// This page allows school admins to generate and manage scratch cards used for result access. It includes a table of scratch cards with search and pagination, as well as actions to add, edit, and delete scratch cards.
+
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 import {
   Select,
   SelectContent,
@@ -43,12 +49,14 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+// Define styles for different card statuses
 const STATUS_STYLES: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-700",
   EXHAUSTED: "bg-red-100 text-red-700",
   DISABLED: "bg-slate-100 text-slate-500",
 };
 
+// Main component for the Scratch Cards page
 export default function ScratchCardsPage() {
   useRequireAuth(["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   const qc = useQueryClient();
@@ -73,6 +81,7 @@ export default function ScratchCardsPage() {
     },
   });
 
+  // Mutation to generate new scratch cards
   const generate = useMutation({
     mutationFn: () =>
       api.post("/scratch-cards", { quantity: parseInt(quantity) }),
@@ -96,6 +105,7 @@ export default function ScratchCardsPage() {
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed"),
   });
 
+  // Function to copy the PIN to clipboard and show a success message
   function copyPin(pin: string) {
     navigator.clipboard.writeText(pin);
     setCopiedPin(pin);
@@ -103,12 +113,13 @@ export default function ScratchCardsPage() {
     setTimeout(() => setCopiedPin(null), 2000);
   }
 
+  // Function to toggle selection of a card for bulk actions
   function toggleSelect(id: string) {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }
-
+  // Render the Scratch Cards management page
   return (
     <div>
       <Header
@@ -185,142 +196,147 @@ export default function ScratchCardsPage() {
         </div>
 
         {/* Cards Table */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead className="w-10">
-                  <Input
-                    type="checkbox"
-                    className="w-4 h-4 cursor-pointer"
-                    checked={
-                      data?.cards?.length > 0 &&
-                      selectedIds.length === data?.cards?.length
-                    }
-                    onChange={(e) =>
-                      setSelectedIds(
-                        e.target.checked
-                          ? (data?.cards?.map((c: any) => c.id) ?? [])
-                          : [],
-                      )
-                    }
-                  />
-                </TableHead>
-                <TableHead>Serial Number</TableHead>
-                <TableHead>PIN</TableHead>
-                <TableHead>Session</TableHead>
-                <TableHead>Uses</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Generated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading &&
-                Array(8)
-                  .fill(0)
-                  .map((_, i) => (
-                    <TableRow key={i}>
-                      {Array(7)
-                        .fill(0)
-                        .map((_, j) => (
-                          <TableCell key={j}>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                        ))}
-                    </TableRow>
-                  ))}
-
-              {!isLoading && data?.cards?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <CreditCard className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-slate-500 font-medium">No cards found</p>
-                    <p className="text-slate-400 text-sm">
-                      Generate cards to get started
-                    </p>
-                  </TableCell>
+        <ResponsiveTable>
+          <div className="bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="w-10">
+                    <Input
+                      type="checkbox"
+                      className="w-4 h-4 cursor-pointer"
+                      checked={
+                        data?.cards?.length > 0 &&
+                        selectedIds.length === data?.cards?.length
+                      }
+                      onChange={(e) =>
+                        setSelectedIds(
+                          e.target.checked
+                            ? (data?.cards?.map((c: any) => c.id) ?? [])
+                            : [],
+                        )
+                      }
+                    />
+                  </TableHead>
+                  <TableHead>Serial Number</TableHead>
+                  <TableHead>PIN</TableHead>
+                  <TableHead>Session</TableHead>
+                  <TableHead>Uses</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Generated</TableHead>
                 </TableRow>
-              )}
-
-              {!isLoading &&
-                data?.cards?.map((card: any) => (
-                  <TableRow
-                    key={card.id}
-                    className={cn(
-                      "hover:bg-slate-50",
-                      selectedIds.includes(card.id) && "bg-blue-50",
-                    )}
-                  >
-                    <TableCell>
-                      <Input
-                        type="checkbox"
-                        className="w-4 h-4 cursor-pointer"
-                        checked={selectedIds.includes(card.id)}
-                        onChange={() => toggleSelect(card.id)}
-                        disabled={card.status !== "ACTIVE"}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-600">
-                      {card.serial}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-bold tracking-widest text-slate-800">
-                          {card.pin.replace(/(.{4})/g, "$1 ").trim()}
-                        </span>
-                        <button
-                          onClick={() => copyPin(card.pin)}
-                          className="text-slate-400 hover:text-blue-500 transition-colors"
-                        >
-                          {copiedPin === card.pin ? (
-                            <Check className="w-3.5 h-3.5 text-green-500" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-slate-500">
-                      {card.session?.name ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {Array(4)
+              </TableHeader>
+              <TableBody>
+                {isLoading &&
+                  Array(8)
+                    .fill(0)
+                    .map((_, i) => (
+                      <TableRow key={i}>
+                        {Array(7)
                           .fill(0)
-                          .map((_, i) => (
-                            <div
-                              key={i}
-                              className={cn(
-                                "w-2.5 h-2.5 rounded-full",
-                                i < card.usageCount
-                                  ? "bg-blue-500"
-                                  : "bg-slate-200",
-                              )}
-                            />
+                          .map((_, j) => (
+                            <TableCell key={j}>
+                              <Skeleton className="h-4 w-full" />
+                            </TableCell>
                           ))}
-                        <span className="text-xs text-slate-400 ml-1">
-                          {card.usageCount}/{card.maxUses}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "text-xs font-semibold px-2 py-1 rounded-full",
-                          STATUS_STYLES[card.status],
-                        )}
-                      >
-                        {card.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {new Date(card.createdAt).toLocaleDateString("en-GB")}
+                      </TableRow>
+                    ))}
+
+                {!isLoading && data?.cards?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <CreditCard className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="text-slate-500 font-medium">
+                        No cards found
+                      </p>
+                      <p className="text-slate-400 text-sm">
+                        Generate cards to get started
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </div>
+                )}
+
+                {!isLoading &&
+                  data?.cards?.map((card: any) => (
+                    <TableRow
+                      key={card.id}
+                      className={cn(
+                        "hover:bg-slate-50",
+                        selectedIds.includes(card.id) && "bg-blue-50",
+                      )}
+                    >
+                      <TableCell>
+                        <Input
+                          type="checkbox"
+                          className="w-4 h-4 cursor-pointer"
+                          checked={selectedIds.includes(card.id)}
+                          onChange={() => toggleSelect(card.id)}
+                          disabled={card.status !== "ACTIVE"}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-slate-600">
+                        {card.serial}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-bold tracking-widest text-slate-800">
+                            {card.pin.replace(/(.{4})/g, "$1 ").trim()}
+                          </span>
+                          <button
+                            onClick={() => copyPin(card.pin)}
+                            className="text-slate-400 hover:text-blue-500 transition-colors"
+                          >
+                            {copiedPin === card.pin ? (
+                              <Check className="w-3.5 h-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-500">
+                        {card.session?.name ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {Array(4)
+                            .fill(0)
+                            .map((_, i) => (
+                              <div
+                                key={i}
+                                className={cn(
+                                  "w-2.5 h-2.5 rounded-full",
+                                  i < card.usageCount
+                                    ? "bg-blue-500"
+                                    : "bg-slate-200",
+                                )}
+                              />
+                            ))}
+                          <span className="text-xs text-slate-400 ml-1">
+                            {card.usageCount}/{card.maxUses}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "text-xs font-semibold px-2 py-1 rounded-full",
+                            STATUS_STYLES[card.status],
+                          )}
+                        >
+                          {card.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-400">
+                        {new Date(card.createdAt).toLocaleDateString("en-GB")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </div>
+        </ResponsiveTable>
+        {/* Table Footer */}
 
         {/* Pagination */}
         {data?.pagination && data.pagination.totalPages > 1 && (

@@ -1,3 +1,5 @@
+// This is the main results management page for teachers and admins. It includes a table of results with search and pagination, as well as actions to add, edit, and delete results. The page also allows downloading individual result sheets as PDFs.
+
 "use client";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 import {
   Select,
   SelectContent,
@@ -43,6 +46,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+// Define performance level colors
 const PERF_COLORS: Record<string, string> = {
   Distinction: "bg-green-100 text-green-700",
   "Upper Credit": "bg-blue-100 text-blue-700",
@@ -50,7 +54,7 @@ const PERF_COLORS: Record<string, string> = {
   Pass: "bg-yellow-100 text-yellow-700",
   Fail: "bg-red-100 text-red-700",
 };
-
+// Main Results Page Component
 export default function ResultsPage() {
   useRequireAuth(["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN"]);
   const qc = useQueryClient();
@@ -62,7 +66,7 @@ export default function ResultsPage() {
     Record<string, { ca: string; exam: string }>
   >({});
 
-  // Fetch classes
+  // Fetch classes for selector
   const { data: classes } = useQuery({
     queryKey: ["classes"],
     queryFn: async () => {
@@ -145,7 +149,7 @@ export default function ResultsPage() {
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed"),
   });
 
-  // Download PDF
+  // Download PDF function
   async function downloadPdf(
     studentId: string,
     termId: string | undefined,
@@ -169,8 +173,9 @@ export default function ResultsPage() {
 
       // Check the response is actually a PDF (not an error JSON)
       const rawContentType = response.headers["content-type"];
-      const contentType = typeof rawContentType === "string" ? rawContentType : "";
-      
+      const contentType =
+        typeof rawContentType === "string" ? rawContentType : "";
+
       if (!contentType.includes("application/pdf")) {
         // The server returned an error as JSON — parse and show it
         const text = await (response.data as Blob).text();
@@ -185,7 +190,7 @@ export default function ResultsPage() {
         return;
       }
 
-      // Create download link
+      // Create a blob URL and trigger download
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -280,137 +285,139 @@ export default function ResultsPage() {
         </Card>
 
         {/* Results Table */}
-        {selectedClass && (
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100">
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  {selectedClassData?.name} — Class Results
-                </h3>
-                {classResults && (
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {classResults.session} ·{" "}
-                    {classResults.term === "FIRST"
-                      ? "1st"
-                      : classResults.term === "SECOND"
-                        ? "2nd"
-                        : "3rd"}{" "}
-                    Term · {classResults.total} student(s)
-                  </p>
-                )}
+        <ResponsiveTable>
+          {selectedClass && (
+            <div className="bg-white ">
+              <div className="flex items-center justify-between p-4 border-b border-slate-100">
+                <div>
+                  <h3 className="font-semibold text-slate-800">
+                    {selectedClassData?.name} — Class Results
+                  </h3>
+                  {classResults && (
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {classResults.session} ·{" "}
+                      {classResults.term === "FIRST"
+                        ? "1st"
+                        : classResults.term === "SECOND"
+                          ? "2nd"
+                          : "3rd"}{" "}
+                      Term · {classResults.total} student(s)
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead>Pos.</TableHead>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Reg No.</TableHead>
-                  <TableHead>Subjects</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Average</TableHead>
-                  <TableHead>Performance</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-20">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingResults &&
-                  Array(5)
-                    .fill(0)
-                    .map((_, i) => (
-                      <TableRow key={i}>
-                        {Array(9)
-                          .fill(0)
-                          .map((_, j) => (
-                            <TableCell key={j}>
-                              <Skeleton className="h-4 w-full" />
-                            </TableCell>
-                          ))}
-                      </TableRow>
-                    ))}
-
-                {!loadingResults && classResults?.results?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12">
-                      <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                      <p className="text-slate-500 font-medium">
-                        No results entered yet
-                      </p>
-                      <p className="text-slate-400 text-sm">
-                        Click &quot;Enter Scores&quot; to get started
-                      </p>
-                    </TableCell>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Pos.</TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Reg No.</TableHead>
+                    <TableHead>Subjects</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Average</TableHead>
+                    <TableHead>Performance</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
                   </TableRow>
-                )}
-                {/* Results */}
-                {!loadingResults &&
-                  classResults?.results?.map((r: any) => (
-                    <TableRow key={r.id} className="hover:bg-slate-50">
-                      <TableCell className="font-bold text-blue-600">
-                        {r.position ?? "—"}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {r.student.firstName} {r.student.lastName}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-500">
-                        {r.student.regNumber}
-                      </TableCell>
-                      <TableCell>{r.subjectsEntered}</TableCell>
-                      <TableCell className="font-semibold">
-                        {r.totalScore}
-                      </TableCell>
-                      <TableCell className="font-semibold text-blue-600">
-                        {r.average}%
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            "text-xs font-semibold px-2 py-1 rounded-full",
-                            PERF_COLORS[r.performance ?? ""] ??
-                              "bg-slate-100 text-slate-600",
-                          )}
-                        >
-                          {r.performance ?? "—"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            r.isPublished
-                              ? "bg-green-100 text-green-700 border-0"
-                              : "bg-slate-100 text-slate-500 border-0"
-                          }
-                        >
-                          {r.isPublished ? "Published" : "Draft"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {/* Actions */}
-                        <div className="flex gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="w-8 h-8 text-blue-500 hover:text-blue-700"
-                            onClick={() =>
-                              downloadPdf(
-                                r.student.id,
-                                classResults.termId,
-                                `${r.student.lastName}_${r.student.firstName}`,
-                              )
-                            }
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {loadingResults &&
+                    Array(5)
+                      .fill(0)
+                      .map((_, i) => (
+                        <TableRow key={i}>
+                          {Array(9)
+                            .fill(0)
+                            .map((_, j) => (
+                              <TableCell key={j}>
+                                <Skeleton className="h-4 w-full" />
+                              </TableCell>
+                            ))}
+                        </TableRow>
+                      ))}
+
+                  {!loadingResults && classResults?.results?.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-12">
+                        <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                        <p className="text-slate-500 font-medium">
+                          No results entered yet
+                        </p>
+                        <p className="text-slate-400 text-sm">
+                          Click &quot;Enter Scores&quot; to get started
+                        </p>
                       </TableCell>
                     </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                  )}
+                  {/* Results */}
+                  {!loadingResults &&
+                    classResults?.results?.map((r: any) => (
+                      <TableRow key={r.id} className="hover:bg-slate-50">
+                        <TableCell className="font-bold text-blue-600">
+                          {r.position ?? "—"}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {r.student.firstName} {r.student.lastName}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-slate-500">
+                          {r.student.regNumber}
+                        </TableCell>
+                        <TableCell>{r.subjectsEntered}</TableCell>
+                        <TableCell className="font-semibold">
+                          {r.totalScore}
+                        </TableCell>
+                        <TableCell className="font-semibold text-blue-600">
+                          {r.average}%
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "text-xs font-semibold px-2 py-1 rounded-full",
+                              PERF_COLORS[r.performance ?? ""] ??
+                                "bg-slate-100 text-slate-600",
+                            )}
+                          >
+                            {r.performance ?? "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              r.isPublished
+                                ? "bg-green-100 text-green-700 border-0"
+                                : "bg-slate-100 text-slate-500 border-0"
+                            }
+                          >
+                            {r.isPublished ? "Published" : "Draft"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {/* Actions */}
+                          <div className="flex gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="w-8 h-8 text-blue-500 hover:text-blue-700"
+                              onClick={() =>
+                                downloadPdf(
+                                  r.student.id,
+                                  classResults.termId,
+                                  `${r.student.lastName}_${r.student.firstName}`,
+                                )
+                              }
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </ResponsiveTable>
 
         {!selectedClass && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
