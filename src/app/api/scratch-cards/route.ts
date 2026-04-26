@@ -1,6 +1,11 @@
+/**
+ * @file src/app/api/scratch-cards/route.ts (POST handler only — replace this section)
+ * @description Updated card generation using collision-proof generator.
+ */
+
 import { getActivePeriod } from "@/lib/active-period";
 import { requireAuth } from "@/lib/auth-guard";
-import { generateSerial, generateUniquePin } from "@/lib/card-generator";
+import { generateScratchCards } from "@/lib/card-generator";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
 import { generateCardsSchema } from "@/validators/scratch-card.validator";
@@ -29,7 +34,7 @@ export async function GET(req: NextRequest) {
         ],
       }),
     };
-// ── Fetch paginated scratch cards ──────────────────
+    // ── Fetch paginated scratch cards ──────────────────
     const [cards, total] = await Promise.all([
       prisma.scratchCard.findMany({
         where,
@@ -41,14 +46,14 @@ export async function GET(req: NextRequest) {
           serial: true,
           pin: true,
           status: true,
-          usageCount: true,    // ← how many times used out of maxUses
-          maxUses: true,        // ← always 4 in current system
+          usageCount: true, // ← how many times used out of maxUses
+          maxUses: true, // ← always 4 in current system
           assignedTo: true,
           createdAt: true,
           session: {
             select: { id: true, name: true },
           },
-           // ── Include usage history for the card list view ──
+          // ── Include usage history for the card list view ──
           usages: {
             orderBy: { usedAt: "desc" },
             select: {
@@ -101,8 +106,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ── POST /api/scratch-cards ────────────────────────
-// Cards are always tied to the ACTIVE session
+// ── Replace the entire POST function ──────────────
 export async function POST(req: NextRequest) {
   const { auth, error } = requireAuth(req, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   if (error) return error;
@@ -117,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     const { quantity, assignedTo } = parsed.data;
 
-    // ── Cards MUST be tied to the active session ───
+    // ── Cards must be tied to the active session ───
     const { activePeriod, error: periodError } = await getActivePeriod(
       auth!.schoolId,
     );
@@ -125,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     const { session } = activePeriod!;
 
-    // Verify student if pre-assigning
+    // ── Verify student if pre-assigning ───────────
     if (assignedTo) {
       const student = await prisma.student.findFirst({
         where: { id: assignedTo, schoolId: auth!.schoolId },
@@ -135,6 +139,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Get school slug for serial prefix ─────────
     const school = await prisma.school.findUnique({
       where: { id: auth!.schoolId },
       select: { slug: true },
@@ -144,30 +149,19 @@ export async function POST(req: NextRequest) {
       return errorResponse("School not found", 404);
     }
 
-    // Generate cards with unique serials + PINs
-    const cards = [];
+    // ── Generate cards using collision-proof system ─
+    const cardIds = await generateScratchCards({
+      schoolSlug: school.slug,
+      schoolId: auth!.schoolId,
+      sessionId: session.id,
+      quantity,
+      assignedTo: assignedTo ?? null,
+    });
 
-    for (let i = 0; i < quantity; i++) {
-      const [serial, pin] = await Promise.all([
-        generateSerial(school.slug, auth!.schoolId, i),
-        generateUniquePin(),
-      ]);
-
-      cards.push({
-        serial,
-        pin,
-        schoolId: auth!.schoolId,
-        sessionId: session.id, // ← lock to active session
-        assignedTo: assignedTo ?? null,
-      });
-    }
-
-    await prisma.scratchCard.createMany({ data: cards });
-
+    // ── Fetch the created cards to return ──────────
     const created = await prisma.scratchCard.findMany({
       where: {
-        schoolId: auth!.schoolId,
-        serial: { in: cards.map((c) => c.serial) },
+        id: { in: cardIds },
       },
       select: {
         id: true,
@@ -180,7 +174,7 @@ export async function POST(req: NextRequest) {
         createdAt: true,
         session: { select: { name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { serial: "asc" },
     });
 
     return successResponse(
@@ -193,8 +187,8 @@ export async function POST(req: NextRequest) {
       `${created.length} scratch card(s) generated for ${session.name} session`,
       201,
     );
-  } catch (err) {
-    console.error("[GENERATE_CARDS]", err);
-    return errorResponse("Internal server error", 500);
+  } catch (err: any) {
+    console.error("[GENERATE_CARDS]", err?.message);
+    return errorResponse("Failed to generate scratch cards", 500);
   }
 }

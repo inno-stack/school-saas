@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = "superadmin@educore.com";
+  const email = "superadmin@InnoCore.com";
   const password = "SuperAdmin@123";
 
   // 1. Check for existing super admin
@@ -23,9 +23,9 @@ async function main() {
     where: { slug: "system" },
     update: {},
     create: {
-      name: "EduCore System",
+      name: "InnoCore System",
       slug: "system",
-      email: "system@educore.com",
+      email: "system@InnoCore.com",
     },
   });
 

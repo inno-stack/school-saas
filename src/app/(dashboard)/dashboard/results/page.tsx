@@ -81,9 +81,10 @@ export default function ResultsPage() {
     queryFn: async () => {
       const { data } = await api.get(`/results/class?classId=${selectedClass}`);
 
-      // // Store the termId alongside
-      // data.data should contain { results: [...], termId: "..." }
-      // depending on how your backend API is structured.
+      // // Store the termId alongside the results for later use in PDF generation
+      // if (data.data) {
+      //   data.data.termId = data.data.termId; // Assuming termId is returned in the response
+      // }
       return data.data;
     },
     enabled: !!selectedClass,
@@ -109,7 +110,8 @@ export default function ResultsPage() {
     enabled: !!selectedClass,
   });
 
-  // Submit scores
+  // Submit scores for a student
+  // This mutation takes the scores entered in the dialog, formats them, and sends them to the backend. On success, it shows a toast with the average and performance, invalidates the class results query to refresh the table, and resets the dialog state.
   const submitScores = useMutation({
     mutationFn: () => {
       const scoreArray = Object.entries(scores)
@@ -136,6 +138,69 @@ export default function ResultsPage() {
       setSelStudent("");
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? "Failed"),
+  });
+
+  /**
+   * Comments state and mutation — add near other useState declarations
+   */
+
+  // ── Comments dialog state ──────────────────────────
+  const [commentDialog, setCommentDialog] = useState(false);
+  const [commentStudent, setCommentStudent] = useState<any>(null);
+  const [teacherComment, setTeacherComment] = useState("");
+  const [principalComment, setPrincipalComment] = useState("");
+  const [teacherName, setTeacherName] = useState("");
+  const [principalName, setPrincipalName] = useState("");
+  const [vacationDate, setVacationDate] = useState("");
+  const [resumptionDate, setResumptionDate] = useState("");
+
+  // ── Save comments mutation ─────────────────────────
+  const saveComments = useMutation({
+    mutationFn: () =>
+      api.put("/results/comments", {
+        studentId: commentStudent?.student?.id,
+        teacherComment: teacherComment || null,
+        principalComment: principalComment || null,
+        teacherName: teacherName || null,
+        principalName: principalName || null,
+      }),
+    onSuccess: () => {
+      toast.success("Comments saved successfully!");
+      setCommentDialog(false);
+    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message ?? "Failed to save comments"),
+  });
+
+  // ── Auto-generate comments mutation ───────────────
+  const autoGenerate = useMutation({
+    mutationFn: () =>
+      api.put("/results/comments", {
+        studentId: commentStudent?.student?.id,
+        teacherName: teacherName || null,
+        principalName: principalName || null,
+        autoGenerate: true,
+      }),
+    onSuccess: (res) => {
+      // ── Populate the text areas with generated comments ─
+      setTeacherComment(res.data.data.teacherComment ?? "");
+      setPrincipalComment(res.data.data.principalComment ?? "");
+      toast.success("Comments auto-generated! Edit if needed.");
+    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message ?? "Failed to generate"),
+  });
+
+  // ── Save attendance mutation ───────────────────────
+  const saveAttendance = useMutation({
+    mutationFn: () =>
+      api.put("/results/attendance", {
+        studentId: commentStudent?.student?.id,
+        vacationDate: vacationDate || null,
+        resumptionDate: resumptionDate || null,
+      }),
+    onSuccess: () => toast.success("Dates saved!"),
+    onError: () => toast.error("Failed to save dates"),
   });
 
   // Publish all results for class
@@ -409,6 +474,20 @@ export default function ResultsPage() {
                             >
                               <Download className="w-4 h-4" />
                             </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="w-8 h-8 text-purple-500 hover:text-purple-700"
+                              title="Add comments & dates"
+                              onClick={() => {
+                                setCommentStudent(r);
+                                setTeacherComment("");
+                                setPrincipalComment("");
+                                setCommentDialog(true);
+                              }}
+                            >
+                              <FileText className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -531,6 +610,162 @@ export default function ResultsPage() {
                 </>
               ) : (
                 "Save Scores"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════════════════════════════════════════════
+    COMMENTS & DATES DIALOG
+════════════════════════════════════════════════ */}
+      <Dialog open={commentDialog} onOpenChange={setCommentDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-600" />
+              Comments & Dates — {commentStudent?.student?.firstName}{" "}
+              {commentStudent?.student?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* ── Staff Names ─────────────────────────── */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Class Teacher&apos;s Name</Label>
+                <Input
+                  placeholder="e.g. Mrs. Ada Okonkwo"
+                  value={teacherName}
+                  onChange={(e) => setTeacherName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Principal&apos;s Name</Label>
+                <Input
+                  placeholder="e.g. Dr. James Eze"
+                  value={principalName}
+                  onChange={(e) => setPrincipalName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* ── Auto-generate button ─────────────────── */}
+            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl">
+              <div>
+                <p className="text-sm font-semibold text-blue-800">
+                  Auto-Generate Comments
+                </p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  Automatically generates personalized comments based on the
+                  student&apos;s performance and average score.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-blue-300 text-blue-700 hover:bg-blue-100 flex-shrink-0 ml-4"
+                onClick={() => autoGenerate.mutate()}
+                disabled={autoGenerate.isPending || !commentStudent}
+              >
+                {autoGenerate.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "✨ Auto-Generate"
+                )}
+              </Button>
+            </div>
+
+            {/* ── Teacher Comment ──────────────────────── */}
+            <div className="space-y-1.5">
+              <Label>Class Teacher&apos;s Comment</Label>
+              <textarea
+                className="w-full min-h-[90px] px-3 py-2 text-sm border border-slate-300 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter teacher's comment about the student's performance..."
+                value={teacherComment}
+                onChange={(e) => setTeacherComment(e.target.value)}
+              />
+              <p className="text-xs text-slate-400">
+                {teacherComment.length}/600 characters
+              </p>
+            </div>
+
+            {/* Principal Comment */}
+            <div className="space-y-1.5">
+              <Label>Principal&apos;s Comment</Label>
+              <textarea
+                className="w-full min-h-[90px] px-3 py-2 text-sm border border-slate-300 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter principal's comment..."
+                value={principalComment}
+                onChange={(e) => setPrincipalComment(e.target.value)}
+              />
+              <p className="text-xs text-slate-400">
+                {principalComment.length}/600 characters
+              </p>
+            </div>
+
+            {/* Vacation & Resumption Dates  */}
+
+            <div className="border-t border-slate-200 pt-4">
+              <p className="text-sm font-semibold text-slate-700 mb-3">
+                Term Dates
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Date of Vacation</Label>
+                  <Input
+                    type="date"
+                    value={vacationDate}
+                    onChange={(e) => setVacationDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Resumption Date</Label>
+                  <Input
+                    type="date"
+                    value={resumptionDate}
+                    onChange={(e) => setResumptionDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => saveAttendance.mutate()}
+                disabled={saveAttendance.isPending}
+              >
+                {saveAttendance.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Dates"
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCommentDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => saveComments.mutate()}
+              disabled={saveComments.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {saveComments.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Comments"
               )}
             </Button>
           </DialogFooter>

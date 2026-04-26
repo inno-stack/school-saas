@@ -261,6 +261,14 @@ export default function CheckResultPage() {
     }
   }
 
+  /**
+   * Print handler — uses browser print with CSS media querys to optimize the print layout and hide unnecessary UI elements, allowing users to easily print their result sheet directly from the browser.
+   * to hide everything except the result sheet itself
+   */
+  function handlePrint() {
+    window.print();
+  }
+
   // ── UI ──────────────────────────────────────────
 
   return (
@@ -407,7 +415,10 @@ export default function CheckResultPage() {
             )}
 
             {/* Main Result Card */}
-            <Card className="border-0 shadow-2xl bg-white overflow-hidden">
+            <Card
+              id="print-result"
+              className="border-0 shadow-2xl bg-white overflow-hidden"
+            >
               {/* School Header */}
               <div className="bg-gradient-to-r from-slate-800 to-blue-900 p-6 text-white">
                 <div className="flex items-start justify-between gap-4">
@@ -417,7 +428,7 @@ export default function CheckResultPage() {
                     </h2>
                     {result.school.motto && (
                       <p className="text-blue-200 text-sm italic mt-1">
-                        "{result.school.motto}"
+                        &quot;{result.school.motto}&quot;
                       </p>
                     )}
                     {result.school.address && (
@@ -944,7 +955,7 @@ export default function CheckResultPage() {
                 )}
 
                 {/* Download Button */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row gap-3 pt-2 no-print">
                   <Button
                     onClick={downloadPdf}
                     disabled={downloading}
@@ -962,20 +973,21 @@ export default function CheckResultPage() {
                       </>
                     )}
                   </Button>
+                  {/* ── Print button — opens exact PDF in new tab ── */}
                   <Button
                     variant="outline"
-                    onClick={() => window.print()}
-                    className="gap-2 h-11"
+                    onClick={handlePrint}
+                    className="gap-2 h-11 no-print"
                   >
                     <Printer className="w-4 h-4" />
-                    Print
+                    Print Result
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
             {/* Check Another Result */}
-            <div className="text-center">
+            <div className="text-center no-print">
               <button
                 onClick={() => setResult(null)}
                 className="text-blue-300 hover:text-white text-sm underline underline-offset-4 transition-colors"

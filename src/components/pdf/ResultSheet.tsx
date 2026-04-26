@@ -1,486 +1,458 @@
+/**
+ * @file src/components/pdf/ResultSheet.tsx
+ * @description Professional A4 academic result sheet — matches the
+ * current working PDF design exactly, with signature image support.
+ *
+ * Key changes from old version:
+ * - Renders teacherSignature, schoolSeal, principalSignature as images
+ * - Falls back to placeholder lines/circles when images not uploaded
+ * - Keeps the exact layout/colors from the current working PDF
+ */
+
 import {
   Document,
-  Font,
+  Image,
   Page,
   StyleSheet,
   Text,
   View,
 } from "@react-pdf/renderer";
 
-Font.register({ family: "Helvetica", fonts: [] });
-
-const COLORS = {
+// ── Color palette ──────────────────────────────────
+const C = {
   primary: "#1a3c5e",
-  secondary: "#2e86c1",
-  accent: "#eaf4fb",
-  gold: "#d4a017",
-  success: "#1e8449",
-  danger: "#c0392b",
-  warning: "#d68910",
+  accent: "#2e86c1",
+  gold: "#c9a227",
+  success: "#1a7a4a",
+  warning: "#b45309",
+  danger: "#b91c1c",
   white: "#ffffff",
-  light: "#f8f9fa",
-  border: "#d5d8dc",
-  text: "#1a1a2e",
-  subtext: "#5d6d7e",
+  offWhite: "#f8f9fa",
+  lightBlue: "#eaf4fb",
+  border: "#dde3ea",
+  text: "#111827",
+  subtext: "#6b7280",
+  tableHeader: "#1a3c5e",
+  tableAlt: "#f0f7ff",
 };
 
-function gradeColor(grade: string) {
+// ── Grade color resolver ───────────────────────────
+function gradeColor(grade: string | null): string {
   switch (grade) {
     case "A":
-      return COLORS.success;
+      return C.success;
     case "B":
-      return COLORS.secondary;
+      return C.accent;
     case "C":
-      return COLORS.warning;
+      return C.warning;
     case "P":
-      return "#7d6608";
+      return "#92400e";
     case "F":
-      return COLORS.danger;
+      return C.danger;
     default:
-      return COLORS.text;
+      return C.subtext;
   }
 }
 
-function gradeBg(grade: string) {
-  switch (grade) {
-    case "A":
-      return COLORS.success;
-    case "B":
-      return COLORS.secondary;
-    case "C":
-      return COLORS.warning;
-    case "P":
-      return "#7d6608";
-    case "F":
-      return COLORS.danger;
-    default:
-      return COLORS.subtext;
-  }
+// ── Term label ─────────────────────────────────────
+function termLabel(term: string): string {
+  return term === "FIRST"
+    ? "First (1st) Term"
+    : term === "SECOND"
+      ? "Second (2nd) Term"
+      : "Third (3rd) Term";
 }
 
-function ratingLabel(r: string | null) {
-  switch (r) {
-    case "EXCELLENT":
-      return "5 - Excellent";
-    case "GOOD":
-      return "4 - Good";
-    case "FAIR":
-      return "3 - Fair";
-    case "POOR":
-      return "2 - Poor";
-    case "VERY_POOR":
-      return "1 - Very Poor";
-    default:
-      return "—";
-  }
+// ── Date formatter ─────────────────────────────────
+function fmtDate(d: string | null): string {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
+// ── Styles ─────────────────────────────────────────
 const S = StyleSheet.create({
   page: {
     fontFamily: "Helvetica",
-    fontSize: 7,
-    color: COLORS.text,
-    backgroundColor: COLORS.white,
-    paddingTop: 14,
-    paddingBottom: 14,
-    paddingLeft: 18,
-    paddingRight: 18,
+    fontSize: 8,
+    color: C.text,
+    backgroundColor: C.white,
+    paddingTop: 28,
+    paddingBottom: 24,
+    paddingLeft: 32,
+    paddingRight: 32,
   },
 
-  // HEADER
-  headerWrapper: {
-    borderBottomWidth: 2.5,
-    borderBottomColor: COLORS.primary,
-    paddingBottom: 6,
-    marginBottom: 5,
-  },
-  headerRow: {
-    flexDirection: "row",
+  // ── School header ──────────────────────────────
+  headerSection: {
     alignItems: "center",
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: C.primary,
   },
-  leftMeta: {
-    width: 85,
-  },
-  metaRow: {
-    flexDirection: "row",
-    marginBottom: 2,
-  },
-  metaLabel: {
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.primary,
-    width: 36,
-    fontSize: 6.5,
-  },
-  metaValue: {
-    fontSize: 6.5,
-    color: COLORS.text,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-  },
-  schoolName: {
-    fontSize: 14,
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.primary,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
-  schoolSub: {
-    fontSize: 6.2,
-    color: COLORS.subtext,
-    marginTop: 1.5,
-    textAlign: "center",
-  },
-  titleBadge: {
-    marginTop: 4,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 2.5,
-    paddingHorizontal: 10,
-    borderRadius: 3,
-  },
-  titleBadgeText: {
-    fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.white,
-    textAlign: "center",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
-  logoBox: {
-    width: 85,
+  logoCircle: {
+    width: 52,
     height: 52,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 3,
+    borderRadius: 26,
+    backgroundColor: C.primary,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.light,
+    marginBottom: 6,
   },
   logoText: {
-    fontSize: 5.8,
-    color: COLORS.subtext,
-    textAlign: "center",
-  },
-
-  // INFO GRID
-  infoGrid: {
-    flexDirection: "row",
-    backgroundColor: COLORS.accent,
-    borderRadius: 3,
-    padding: 5,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  infoCol: { flex: 1 },
-  infoRow: { flexDirection: "row", marginBottom: 2 },
-  infoLabel: {
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.primary,
-    width: 70,
-    fontSize: 6.8,
-  },
-  infoValue: { flex: 1, fontSize: 6.8 },
-
-  // SUMMARY BAND
-  summaryBand: {
-    flexDirection: "row",
-    backgroundColor: COLORS.primary,
-    borderRadius: 3,
-    marginBottom: 4,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 5,
-    borderRightWidth: 1,
-    borderRightColor: "rgba(255,255,255,0.15)",
-  },
-  summaryLabel: {
-    fontSize: 5.5,
-    color: "rgba(255,255,255,0.7)",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-    marginBottom: 1.5,
-    textAlign: "center",
-  },
-  summaryValue: {
-    fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.white,
-    textAlign: "center",
-  },
-  summaryGold: {
-    fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.gold,
-    textAlign: "center",
-  },
-
-  // ATTENDANCE
-  attendanceBar: {
-    flexDirection: "row",
-    backgroundColor: COLORS.light,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 3,
-    paddingVertical: 4,
-    marginBottom: 4,
-  },
-  attItem: { flex: 1, alignItems: "center" },
-  attLabel: {
-    fontSize: 5.5,
-    color: COLORS.subtext,
-    textTransform: "uppercase",
-    marginBottom: 1,
-    textAlign: "center",
-  },
-  attValue: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 7.5,
-    color: COLORS.primary,
-  },
-
-  // TABLE
-  sectionTitle: {
-    fontFamily: "Helvetica-Bold",
+    color: C.white,
     fontSize: 7,
-    color: COLORS.primary,
-    marginBottom: 3,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.secondary,
-    paddingBottom: 1.5,
-  },
-  table: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 2,
-    marginBottom: 4,
-    overflow: "hidden",
-  },
-  tHead: {
-    flexDirection: "row",
-    backgroundColor: COLORS.primary,
-    paddingVertical: 3,
-    paddingHorizontal: 3,
-  },
-  tRow: {
-    flexDirection: "row",
-    paddingVertical: 2.5,
-    paddingHorizontal: 3,
-    alignItems: "center",
-  },
-  tRowEven: { backgroundColor: COLORS.accent },
-  tRowOdd: { backgroundColor: COLORS.white },
-  th: {
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.white,
-    fontSize: 6,
-    textAlign: "center",
-  },
-  td: { fontSize: 6.5, textAlign: "center", color: COLORS.text },
-  tdLeft: { fontSize: 6.5, textAlign: "left", color: COLORS.text },
-  cSn: { width: 16 },
-  cSubject: { flex: 1 },
-  cScore: { width: 26 },
-  cTotal: { width: 26 },
-  cGrade: { width: 20 },
-  cDesc: { width: 52 },
-  cRemark: { width: 42 },
-  cPos: { width: 22 },
-  cAvg: { width: 28 },
-
-  // BOTTOM ROW
-  bottomRow: {
-    flexDirection: "row",
-    gap: 5,
-    marginBottom: 4,
-  },
-  panel: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  panelHead: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 2.5,
-    paddingHorizontal: 5,
-  },
-  panelHeadText: {
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.white,
-    fontSize: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  skillRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  skillRowAlt: { backgroundColor: COLORS.accent },
-  skillName: { fontSize: 6.2, color: COLORS.text },
-  skillVal: {
-    fontSize: 6.2,
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.secondary,
-  },
-
-  // GRADE KEY — inline horizontal layout
-  gradeKeyRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    padding: 4,
-    gap: 2,
-  },
-  gradeKeyItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "48%",
-    marginBottom: 2,
-  },
-  gradeKBadge: {
-    width: 14,
-    height: 12,
-    borderRadius: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 3,
-  },
-  gradeKBadgeText: {
-    fontSize: 6,
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.white,
-  },
-  gradeKLabel: { fontSize: 6, color: COLORS.text },
-
-  // RATING SCALE — single row
-  ratingRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    padding: 4,
-    gap: 3,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  ratingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 4,
-  },
-  ratingDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    marginRight: 2,
-    backgroundColor: COLORS.secondary,
-  },
-  ratingText: { fontSize: 5.8, color: COLORS.text },
-
-  // SUMMARY SENTENCE
-  summaryText: {
-    fontSize: 6.8,
-    color: COLORS.primary,
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
-    backgroundColor: COLORS.accent,
-    padding: 4,
-    borderRadius: 3,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
-
-  // COMMENTS
-  commentsRow: {
-    flexDirection: "row",
-    gap: 5,
-    marginBottom: 4,
-  },
-  commentBox: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  commentHead: {
-    backgroundColor: COLORS.secondary,
-    paddingVertical: 2.5,
-    paddingHorizontal: 5,
-  },
-  commentHeadText: {
+  schoolName: {
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
-    color: COLORS.white,
-    fontSize: 6,
+    color: C.primary,
     textTransform: "uppercase",
+    letterSpacing: 1.5,
+    textAlign: "center",
   },
-  commentBody: {
-    padding: 5,
-    minHeight: 30,
-  },
-  commentText: {
-    fontSize: 6.5,
-    color: COLORS.text,
-    fontStyle: "italic",
-  },
-  commentName: {
-    fontSize: 6,
-    fontFamily: "Helvetica-Bold",
-    color: COLORS.subtext,
+  schoolAddress: {
+    fontSize: 7,
+    color: C.subtext,
+    textAlign: "center",
     marginTop: 2,
   },
-  sigLine: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    borderStyle: "dashed",
-    marginTop: 6,
-    paddingTop: 2,
-  },
-  sigText: { fontSize: 5.8, color: COLORS.subtext },
-
-  stampBox: {
-    width: 75,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 3,
-    overflow: "hidden",
+  schoolMotto: {
+    fontSize: 7,
+    color: C.subtext,
+    fontStyle: "italic",
+    textAlign: "center",
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
 
-  // FOOTER
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 3,
+  // ── Transcript title bar ───────────────────────
+  transcriptBar: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  transcriptTitle: {
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: C.accent,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  transcriptSub: {
+    fontSize: 7,
+    color: C.subtext,
+    marginTop: 2,
+  },
+  reportDateLabel: {
+    fontSize: 6.5,
+    color: C.subtext,
+    textAlign: "right",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  reportDateValue: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: C.primary,
+    textAlign: "right",
+    marginTop: 1,
+  },
+
+  // ── Student info row ───────────────────────────
+  studentInfoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: C.offWhite,
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  studentInfoItem: { flex: 1 },
+  studentInfoItemRight: { flex: 1, alignItems: "flex-end" },
+  studentInfoLabel: {
+    fontSize: 6,
+    color: C.subtext,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  studentInfoValue: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: C.text,
+  },
+
+  // ── Subject table ──────────────────────────────
+  table: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 3,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  tableHead: {
+    flexDirection: "row",
+    backgroundColor: C.tableHeader,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 4.5,
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    alignItems: "center",
+    minHeight: 22,
+  },
+  tableRowAlt: { backgroundColor: C.tableAlt },
+  th: {
+    fontFamily: "Helvetica-Bold",
+    color: C.white,
+    fontSize: 6.5,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  td: {
+    fontSize: 7.5,
+    color: C.text,
+    textAlign: "center",
+  },
+  tdSubject: {
+    fontSize: 7.5,
+    color: C.text,
+    textAlign: "left",
+    fontFamily: "Helvetica-Bold",
+  },
+  colSubject: { flex: 1 },
+  colCA: { width: 40, textAlign: "center" as const },
+  colExam: { width: 44, textAlign: "center" as const },
+  colTotal: { width: 36, textAlign: "center" as const },
+  colGrade: { width: 36, textAlign: "center" as const },
+  colAvg: { width: 40, textAlign: "center" as const },
+  colRemark: { width: 80, textAlign: "left" as const },
+  gradeBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+  },
+  gradeBadgeText: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: C.white,
+  },
+
+  // ── Bottom row: summary + remark ──────────────
+  bottomRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 10,
+  },
+  summaryBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  summaryHeader: {
+    backgroundColor: C.primary,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  summaryHeaderText: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: C.white,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  summaryRowAlt: { backgroundColor: C.offWhite },
+  summaryLabel: { fontSize: 7, color: C.subtext },
+  summaryValue: { fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.text },
+  summaryValueHighlight: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.accent,
+  },
+  remarkBox: {
+    flex: 1.2,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  remarkHeader: {
+    backgroundColor: C.accent,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  remarkHeaderText: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: C.white,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  remarkBody: { padding: 8, flex: 1 },
+  remarkText: {
+    fontSize: 7.5,
+    color: C.text,
+    fontStyle: "italic",
+    lineHeight: 1.5,
+  },
+  remarkName: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: C.subtext,
+    marginTop: 6,
+  },
+
+  // ── Signature row — KEY FIX ─────────────────────
+  // Three columns: Teacher | Seal | Principal
+  sigRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  sigCell: {
+    flex: 1,
     alignItems: "center",
   },
-  footerText: { fontSize: 5.8, color: COLORS.subtext },
-  footerBadge: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 2,
-    paddingHorizontal: 7,
-    borderRadius: 8,
+
+  // ── Signature image + line below ───────────────
+  // When image is uploaded → show image above the line
+  // When no image → show empty space above the line
+  sigLineBox: {
+    width: 90,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    borderBottomWidth: 1,
+    borderBottomColor: C.text,
+    marginBottom: 4,
+    paddingBottom: 2,
   },
-  footerBadgeText: {
-    fontSize: 5.8,
-    color: COLORS.white,
+  // Image fills the line box when available
+  sigImg: {
+    width: 88,
+    height: 34,
+    objectFit: "contain" as const,
+  },
+  sigLabel: {
+    fontSize: 6.5,
+    color: C.subtext,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    textAlign: "center",
+  },
+
+  // ── School seal ────────────────────────────────
+  // Circle with image inside, or dashed placeholder
+  sealOuter: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+    overflow: "hidden",
+  },
+  sealImg: {
+    width: 54,
+    height: 54,
+    objectFit: "contain" as const,
+  },
+  sealPlaceholderOuter: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderStyle: "dashed" as const,
+    borderColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  sealPlaceholderText: {
+    fontSize: 5.5,
+    color: C.subtext,
+    textAlign: "center",
+  },
+
+  // ── Dates row ──────────────────────────────────
+  datesRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 24,
+    backgroundColor: C.offWhite,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  dateItem: { alignItems: "center" },
+  dateLabel: {
+    fontSize: 6,
+    color: C.subtext,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  dateValue: {
+    fontSize: 8,
     fontFamily: "Helvetica-Bold",
+    color: C.primary,
+  },
+
+  // ── Footer ─────────────────────────────────────
+  docFooter: {
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingTop: 5,
+    alignItems: "center",
+  },
+  docFooterText: {
+    fontSize: 6,
+    color: C.subtext,
+    textAlign: "center",
+    lineHeight: 1.6,
   },
 });
 
-// ── Types ──────────────────────────────────────────
-interface ResultSheetProps {
+// ── Props type ─────────────────────────────────────
+export interface ResultSheetProps {
   data: {
     school: {
       name: string;
@@ -488,6 +460,10 @@ interface ResultSheetProps {
       phone: string | null;
       email: string | null;
       motto: string | null;
+      logo: string | null;
+      teacherSignature: string | null;
+      schoolSeal: string | null;
+      principalSignature: string | null;
     };
     student: {
       fullName: string;
@@ -507,26 +483,21 @@ interface ResultSheetProps {
       performance: string | null;
     };
     attendance: {
-      daysOpen: number | null;
-      daysPresent: number | null;
-      daysAbsent: number | null;
       vacationDate: string | null;
       resumptionDate: string | null;
     };
     subjects: Array<{
       sn: number;
       name: string;
+      code: string | null;
       caScore: number | null;
       examScore: number | null;
       totalScore: number | null;
       grade: string | null;
       description: string | null;
       remark: string | null;
-      positionInClass: string | null;
       classAverage: number | null;
     }>;
-    psychomotorSkills: Array<{ name: string; rating: string | null }>;
-    socialBehaviour: Array<{ name: string; rating: string | null }>;
     comments: {
       teacher: string | null;
       teacherName: string | null;
@@ -542,444 +513,386 @@ interface ResultSheetProps {
   };
 }
 
+// ── Main PDF Component ─────────────────────────────
 export function ResultSheet({ data }: ResultSheetProps) {
-  const {
-    school,
-    student,
-    summary,
-    attendance,
-    subjects,
-    psychomotorSkills,
-    socialBehaviour,
-    comments,
-    gradeKey,
-  } = data;
-
-  const gradeCounts = subjects.reduce(
-    (acc, s) => {
-      if (s.grade) acc[s.grade] = (acc[s.grade] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
-
-  const summarySentence = Object.entries(gradeCounts)
-    .map(([g, c]) => `${c} ${g}(s)`)
-    .join(", ");
-
-  const termLabel =
-    data.term === "FIRST"
-      ? "1st Term"
-      : data.term === "SECOND"
-        ? "2nd Term"
-        : "3rd Term";
-
-  const fmt = (d: string | null) =>
-    d
-      ? new Date(d).toLocaleDateString("en-GB", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })
-      : "—";
+  const { school, student, summary, attendance, subjects, comments } = data;
 
   return (
-    <Document>
+    <Document
+      title={`Result — ${student.fullName} — ${termLabel(data.term)}`}
+      author={school.name}
+    >
       <Page size="A4" style={S.page}>
-        {/* ── HEADER ─────────────────────────── */}
-        <View style={S.headerWrapper}>
-          <View style={S.headerRow}>
-            <View style={S.leftMeta}>
-              {[
-                { label: "Reg No:", value: student.regNumber },
-                { label: "Gender:", value: student.gender },
-              ].map((r, i) => (
-                <View key={i} style={S.metaRow}>
-                  <Text style={S.metaLabel}>{r.label}</Text>
-                  <Text style={S.metaValue}>{r.value}</Text>
-                </View>
-              ))}
+        {/* ════════════════════════════════════════
+            SCHOOL HEADER
+        ════════════════════════════════════════ */}
+        <View style={S.headerSection}>
+          {/* School logo — image if available, circle fallback */}
+          {school.logo ? (
+            <Image
+              src={school.logo}
+              style={{ width: 52, height: 52, marginBottom: 6 }}
+            />
+          ) : (
+            <View style={S.logoCircle}>
+              <Text style={S.logoText}>{"SCHOOL\nLOGO"}</Text>
             </View>
+          )}
 
-            <View style={S.headerCenter}>
-              <Text style={S.schoolName}>{school.name}</Text>
-              {school.motto && (
-                <Text style={[S.schoolSub, { fontStyle: "italic" }]}>
-                  &quot;{school.motto}&quot;
-                </Text>
-              )}
-              {school.address && (
-                <Text style={S.schoolSub}>{school.address}</Text>
-              )}
-              <Text style={S.schoolSub}>
-                {[school.phone, school.email].filter(Boolean).join("  •  ")}
-              </Text>
-              <View style={S.titleBadge}>
-                <Text style={S.titleBadgeText}>
-                  Student&apos;s Termly Academic Assessment Report
-                </Text>
-              </View>
-            </View>
+          <Text style={S.schoolName}>{school.name}</Text>
 
-            <View style={S.logoBox}>
-              <Text style={S.logoText}>SCHOOL{"\n"}LOGO</Text>
-            </View>
-          </View>
-        </View>
+          {school.address && (
+            <Text style={S.schoolAddress}>{school.address}</Text>
+          )}
 
-        {/* ── STUDENT INFO ────────────────────── */}
-        <View style={S.infoGrid}>
-          <View style={S.infoCol}>
-            <View style={S.infoRow}>
-              <Text style={S.infoLabel}>Student Name:</Text>
-              <Text style={[S.infoValue, { fontFamily: "Helvetica-Bold" }]}>
-                {student.fullName}
-              </Text>
-            </View>
-            <View style={S.infoRow}>
-              <Text style={S.infoLabel}>Class:</Text>
-              <Text style={S.infoValue}>{data.class}</Text>
-            </View>
-          </View>
-          <View style={[S.infoCol, { paddingLeft: 10 }]}>
-            <View style={S.infoRow}>
-              <Text style={S.infoLabel}>Academic Session:</Text>
-              <Text style={S.infoValue}>{data.session}</Text>
-            </View>
-            <View style={S.infoRow}>
-              <Text style={S.infoLabel}>Current Term:</Text>
-              <Text style={[S.infoValue, { fontFamily: "Helvetica-Bold" }]}>
-                {termLabel}
-              </Text>
-            </View>
-          </View>
-        </View>
+          <Text style={S.schoolAddress}>
+            {[school.phone, school.email].filter(Boolean).join("  ·  ")}
+          </Text>
 
-        {/* ── SUMMARY BAND ────────────────────── */}
-        <View style={S.summaryBand}>
-          {[
-            {
-              label: "Subjects Offered",
-              value: summary.subjectsOffered.toString(),
-            },
-            {
-              label: "Subjects Evaluated",
-              value: summary.subjectsEvaluated.toString(),
-            },
-            { label: "Total Score", value: summary.totalScore.toString() },
-            { label: "Average", value: `${summary.average}%` },
-            {
-              label: "Position",
-              value: summary.position
-                ? `${summary.position} / ${summary.outOf}`
-                : "—",
-              gold: true,
-            },
-            {
-              label: "Performance",
-              value: summary.performance ?? "—",
-              gold: true,
-            },
-          ].map((item, i) => (
-            <View key={i} style={S.summaryItem}>
-              <Text style={S.summaryLabel}>{item.label}</Text>
-              <Text style={item.gold ? S.summaryGold : S.summaryValue}>
-                {item.value}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* ── ATTENDANCE ──────────────────────── */}
-        <View style={S.attendanceBar}>
-          {[
-            {
-              label: "Days Open",
-              value: attendance.daysOpen?.toString() ?? "—",
-            },
-            {
-              label: "Days Present",
-              value: attendance.daysPresent?.toString() ?? "—",
-            },
-            {
-              label: "Days Absent",
-              value: attendance.daysAbsent?.toString() ?? "—",
-            },
-            { label: "Date of Vacation", value: fmt(attendance.vacationDate) },
-            { label: "Resumption Date", value: fmt(attendance.resumptionDate) },
-          ].map((item, i) => (
-            <View key={i} style={S.attItem}>
-              <Text style={S.attLabel}>{item.label}</Text>
-              <Text style={S.attValue}>{item.value}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* ── RESULT TABLE ─────────────────────── */}
-        <Text style={S.sectionTitle}>
-          Student&apos;s Termly Result Detail and Analysis
-        </Text>
-        <View style={S.table}>
-          <View style={S.tHead}>
-            <Text style={[S.th, S.cSn]}>S/N</Text>
-            <Text style={[S.th, S.cSubject, { textAlign: "left" }]}>
-              Subject
+          {school.motto && (
+            <Text style={S.schoolMotto}>
+              &quot;{school.motto.toUpperCase()}&quot;
             </Text>
-            <Text style={[S.th, S.cScore]}>CA (40)</Text>
-            <Text style={[S.th, S.cScore]}>Exam (60)</Text>
-            <Text style={[S.th, S.cTotal]}>Total</Text>
-            <Text style={[S.th, S.cGrade]}>Grade</Text>
-            <Text style={[S.th, S.cDesc]}>Description</Text>
-            <Text style={[S.th, S.cRemark]}>Remark</Text>
-            <Text style={[S.th, S.cPos]}>Pos.</Text>
-            <Text style={[S.th, S.cAvg]}>Class Avg</Text>
+          )}
+        </View>
+
+        {/* ════════════════════════════════════════
+            TRANSCRIPT TITLE BAR
+        ════════════════════════════════════════ */}
+        <View style={S.transcriptBar}>
+          <View>
+            <Text style={S.transcriptTitle}>Official Academic Transcript</Text>
+            <Text style={S.transcriptSub}>
+              Session: {data.session} • Term: {termLabel(data.term)}
+            </Text>
           </View>
-          {subjects.map((s, i) => (
+          <View>
+            <Text style={S.reportDateLabel}>Report Date</Text>
+            <Text style={S.reportDateValue}>
+              {new Date().toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </Text>
+          </View>
+        </View>
+
+        {/* ════════════════════════════════════════
+            STUDENT INFO ROW
+        ════════════════════════════════════════ */}
+        <View style={S.studentInfoRow}>
+          <View style={S.studentInfoItem}>
+            <Text style={S.studentInfoLabel}>Student Full Name</Text>
+            <Text style={S.studentInfoValue}>{student.fullName}</Text>
+          </View>
+          <View style={S.studentInfoItem}>
+            <Text style={S.studentInfoLabel}>Student ID / Reg No.</Text>
+            <Text style={S.studentInfoValue}>{student.regNumber}</Text>
+          </View>
+          <View style={S.studentInfoItemRight}>
+            <Text style={S.studentInfoLabel}>Class / Grade</Text>
+            <Text style={S.studentInfoValue}>{data.class}</Text>
+          </View>
+        </View>
+
+        {/* ════════════════════════════════════════
+            SUBJECT TABLE
+        ════════════════════════════════════════ */}
+        <View style={S.table}>
+          <View style={S.tableHead}>
+            <Text style={[S.th, S.colSubject]}>Subject</Text>
+            <Text style={[S.th, S.colCA, { textAlign: "center" }]}>
+              CA Score{"\n"}(40)
+            </Text>
+            <Text style={[S.th, S.colExam, { textAlign: "center" }]}>
+              Exam Score{"\n"}(60)
+            </Text>
+            <Text style={[S.th, S.colTotal, { textAlign: "center" }]}>
+              Total{"\n"}(100)
+            </Text>
+            <Text style={[S.th, S.colGrade, { textAlign: "center" }]}>
+              Grade
+            </Text>
+            <Text style={[S.th, S.colAvg, { textAlign: "center" }]}>
+              Average
+            </Text>
+            <Text style={[S.th, S.colRemark]}>Remark</Text>
+          </View>
+
+          {subjects.map((subj, i) => (
             <View
               key={i}
-              style={[S.tRow, i % 2 === 0 ? S.tRowOdd : S.tRowEven]}
+              style={[S.tableRow, i % 2 !== 0 ? S.tableRowAlt : {}]}
             >
-              <Text style={[S.td, S.cSn]}>{s.sn}</Text>
-              <Text style={[S.tdLeft, S.cSubject]}>{s.name}</Text>
-              <Text style={[S.td, S.cScore]}>{s.caScore ?? "—"}</Text>
-              <Text style={[S.td, S.cScore]}>{s.examScore ?? "—"}</Text>
-              <Text style={[S.td, S.cTotal, { fontFamily: "Helvetica-Bold" }]}>
-                {s.totalScore ?? "—"}
-              </Text>
+              <Text style={[S.tdSubject, S.colSubject]}>{subj.name}</Text>
+              <Text style={[S.td, S.colCA]}>{subj.caScore ?? "—"}</Text>
+              <Text style={[S.td, S.colExam]}>{subj.examScore ?? "—"}</Text>
               <Text
-                style={[
-                  S.td,
-                  S.cGrade,
-                  {
-                    fontFamily: "Helvetica-Bold",
-                    color: gradeColor(s.grade ?? ""),
-                  },
-                ]}
+                style={[S.td, S.colTotal, { fontFamily: "Helvetica-Bold" }]}
               >
-                {s.grade ?? "—"}
+                {subj.totalScore ?? "—"}
               </Text>
-              <Text style={[S.td, S.cDesc]}>{s.description ?? "—"}</Text>
+              <View style={[S.colGrade, { alignItems: "center" }]}>
+                <View
+                  style={[
+                    S.gradeBadge,
+                    { backgroundColor: gradeColor(subj.grade) },
+                  ]}
+                >
+                  <Text style={S.gradeBadgeText}>{subj.grade ?? "—"}</Text>
+                </View>
+              </View>
+              <Text style={[S.td, S.colAvg]}>{subj.classAverage ?? "—"}</Text>
               <Text
-                style={[
-                  S.td,
-                  S.cRemark,
-                  {
-                    color:
-                      s.remark === "Excellent" || s.remark === "Very Good"
-                        ? COLORS.success
-                        : s.remark === "Poor"
-                          ? COLORS.danger
-                          : COLORS.text,
-                  },
-                ]}
+                style={[S.td, S.colRemark, { textAlign: "left", fontSize: 7 }]}
               >
-                {s.remark ?? "—"}
+                {subj.remark ?? "—"}
               </Text>
-              <Text style={[S.td, S.cPos]}>{s.positionInClass ?? "—"}</Text>
-              <Text style={[S.td, S.cAvg]}>{s.classAverage ?? "—"}</Text>
             </View>
           ))}
         </View>
 
-        {/* ── BOTTOM: Skills + Grade Key ────────── */}
+        {/* ════════════════════════════════════════
+            ACADEMIC SUMMARY + TEACHER REMARK
+        ════════════════════════════════════════ */}
         <View style={S.bottomRow}>
-          {/* Psychomotor */}
-          <View style={S.panel}>
-            <View style={S.panelHead}>
-              <Text style={S.panelHeadText}>Psychomotor Skills</Text>
+          {/* Academic Summary */}
+          <View style={S.summaryBox}>
+            <View style={S.summaryHeader}>
+              <Text style={S.summaryHeaderText}>Academic Summary</Text>
             </View>
-            {psychomotorSkills.length > 0 ? (
-              psychomotorSkills.map((s, i) => (
-                <View
-                  key={i}
-                  style={[S.skillRow, i % 2 !== 0 ? S.skillRowAlt : {}]}
-                >
-                  <Text style={S.skillName}>{s.name}</Text>
-                  <Text style={S.skillVal}>{ratingLabel(s.rating)}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={{ padding: 5, fontSize: 6, color: COLORS.subtext }}>
-                Not recorded
-              </Text>
-            )}
-          </View>
 
-          {/* Social */}
-          <View style={S.panel}>
-            <View style={S.panelHead}>
-              <Text style={S.panelHeadText}>Social Behaviour</Text>
-            </View>
-            {socialBehaviour.length > 0 ? (
-              socialBehaviour.map((s, i) => (
-                <View
-                  key={i}
-                  style={[S.skillRow, i % 2 !== 0 ? S.skillRowAlt : {}]}
+            {[
+              {
+                label: `Total Score (Out of ${subjects.length * 100}):`,
+                value: summary.totalScore.toString(),
+                highlight: false,
+              },
+              {
+                label: "Aggregate Average:",
+                value: `${summary.average}%`,
+                highlight: false,
+              },
+              {
+                label: "Class Rank / Position:",
+                value: summary.position
+                  ? `${summary.position} out of ${summary.outOf}`
+                  : "—",
+                highlight: true,
+              },
+              {
+                label: "Overall Performance:",
+                value: summary.performance ?? "—",
+                highlight: false,
+              },
+              {
+                label: "Subjects Offered:",
+                value: summary.subjectsOffered.toString(),
+                highlight: false,
+              },
+            ].map((row, i) => (
+              <View
+                key={i}
+                style={[S.summaryRow, i % 2 !== 0 ? S.summaryRowAlt : {}]}
+              >
+                <Text style={S.summaryLabel}>{row.label}</Text>
+                <Text
+                  style={
+                    row.highlight ? S.summaryValueHighlight : S.summaryValue
+                  }
                 >
-                  <Text style={S.skillName}>{s.name}</Text>
-                  <Text style={S.skillVal}>{ratingLabel(s.rating)}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={{ padding: 5, fontSize: 6, color: COLORS.subtext }}>
-                Not recorded
-              </Text>
-            )}
-          </View>
+                  {row.value}
+                </Text>
+              </View>
+            ))}
 
-          {/* Grade Key + Rating scale compact */}
-          <View style={S.panel}>
-            <View style={S.panelHead}>
-              <Text style={S.panelHeadText}>Grade Key</Text>
-            </View>
-            <View style={S.gradeKeyRow}>
-              {gradeKey.map((g, i) => (
-                <View key={i} style={S.gradeKeyItem}>
+            {/* Grade key */}
+            <View style={[S.summaryRow, { flexDirection: "column", gap: 2 }]}>
+              <Text style={[S.summaryLabel, { marginBottom: 3 }]}>
+                Grade Key:
+              </Text>
+              {data.gradeKey.map((g) => (
+                <View
+                  key={g.grade}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    marginBottom: 1.5,
+                  }}
+                >
                   <View
                     style={[
-                      S.gradeKBadge,
-                      { backgroundColor: gradeBg(g.grade) },
+                      S.gradeBadge,
+                      {
+                        width: 14,
+                        height: 14,
+                        borderRadius: 7,
+                        backgroundColor: gradeColor(g.grade),
+                      },
                     ]}
                   >
-                    <Text style={S.gradeKBadgeText}>{g.grade}</Text>
-                  </View>
-                  <View>
-                    <Text
-                      style={[S.gradeKLabel, { fontFamily: "Helvetica-Bold" }]}
-                    >
-                      {g.description}
-                    </Text>
-                    <Text
-                      style={[
-                        S.gradeKLabel,
-                        { color: COLORS.subtext, fontSize: 5.5 },
-                      ]}
-                    >
-                      {g.range} — {g.remark}
+                    <Text style={[S.gradeBadgeText, { fontSize: 6 }]}>
+                      {g.grade}
                     </Text>
                   </View>
+                  <Text style={{ fontSize: 6.5, color: C.subtext }}>
+                    {g.range} — {g.description} ({g.remark})
+                  </Text>
                 </View>
               ))}
             </View>
-            {/* Rating scale inline */}
-            <View style={S.ratingRow}>
-              {["5=Excellent", "4=Good", "3=Fair", "2=Poor", "1=V.Poor"].map(
-                (r, i) => (
-                  <View key={i} style={S.ratingItem}>
-                    <View style={S.ratingDot} />
-                    <Text style={S.ratingText}>{r}</Text>
-                  </View>
-                ),
-              )}
-            </View>
           </View>
-        </View>
 
-        {/* ── SUMMARY SENTENCE ────────────────── */}
-        <Text style={S.summaryText}>
-          Dear {student.fullName}, you made {summarySentence} in your{" "}
-          {termLabel} of {data.session} Academic Session.
-        </Text>
-
-        {/* ── COMMENTS ─────────────────────────── */}
-        <View style={S.commentsRow}>
-          <View style={S.commentBox}>
-            <View style={S.commentHead}>
-              <Text style={S.commentHeadText}>
-                Class Teacher&apos;s Comment
+          {/* Teacher + Principal Remark */}
+          <View style={S.remarkBox}>
+            <View style={S.remarkHeader}>
+              <Text style={S.remarkHeaderText}>
+                Class Teacher&apos;s Remark
               </Text>
             </View>
-            <View style={S.commentBody}>
-              <Text style={S.commentText}>
-                {comments.teacher ?? "No comment provided."}
+            <View style={S.remarkBody}>
+              <Text style={S.remarkText}>
+                {comments.teacher
+                  ? `"${comments.teacher}"`
+                  : `"${student.fullName} has shown ${
+                      summary.performance === "Distinction"
+                        ? "exceptional"
+                        : summary.performance === "Upper Credit"
+                          ? "commendable"
+                          : summary.performance === "Credit"
+                            ? "satisfactory"
+                            : "some"
+                    } academic performance this term with an average of ${
+                      summary.average
+                    }%. ${
+                      summary.position
+                        ? `Ranked ${summary.position} out of ${summary.outOf} students.`
+                        : ""
+                    } Keep up the good work!"`}
               </Text>
               {comments.teacherName && (
-                <Text style={S.commentName}>{comments.teacherName}</Text>
+                <Text style={S.remarkName}>— {comments.teacherName}</Text>
               )}
-              <View style={S.sigLine}>
-                <Text style={S.sigText}>
-                  Signature & Date: ___________________
-                </Text>
-              </View>
-            </View>
-          </View>
 
-          <View style={S.commentBox}>
-            <View style={S.commentHead}>
-              <Text style={S.commentHeadText}>Principal&apos;s Comment</Text>
-            </View>
-            <View style={S.commentBody}>
-              <Text style={S.commentText}>
-                {comments.principal ?? "No comment provided."}
-              </Text>
-              {comments.principalName && (
-                <Text style={S.commentName}>{comments.principalName}</Text>
-              )}
-              <View style={S.sigLine}>
-                <Text style={S.sigText}>
-                  Signature & Date: ___________________
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Stamp */}
-          <View style={S.stampBox}>
-            <View style={S.commentHead}>
-              <Text style={S.commentHeadText}>School Stamp</Text>
-            </View>
-            <View
-              style={[
-                S.commentBody,
-                {
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 45,
-                },
-              ]}
-            >
+              {/* Principal comment divider */}
               <View
                 style={{
-                  width: 55,
-                  height: 55,
-                  borderRadius: 28,
-                  borderWidth: 1.5,
-                  borderColor: COLORS.border,
-                  borderStyle: "dashed",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  borderTopWidth: 1,
+                  borderTopColor: C.border,
+                  marginTop: 8,
+                  paddingTop: 8,
                 }}
               >
                 <Text
-                  style={{
-                    fontSize: 5.5,
-                    color: COLORS.subtext,
-                    textAlign: "center",
-                  }}
+                  style={[
+                    S.remarkHeaderText,
+                    {
+                      color: C.primary,
+                      marginBottom: 4,
+                    },
+                  ]}
                 >
-                  OFFICIAL{"\n"}STAMP
+                  Principal&apos;s Comment
                 </Text>
+                <Text style={S.remarkText}>
+                  {comments.principal
+                    ? `"${comments.principal}"`
+                    : `"${student.fullName} is encouraged to maintain this level of performance. We are proud of your achievement this term."`}
+                </Text>
+                {comments.principalName && (
+                  <Text style={S.remarkName}>— {comments.principalName}</Text>
+                )}
               </View>
             </View>
           </View>
         </View>
 
-        {/* ── FOOTER ───────────────────────────── */}
-        <View style={S.footer}>
-          <Text style={S.footerText}>
-            Generated:{" "}
-            {new Date().toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </Text>
-          <Text style={S.footerText}>
-            {school.name} — {data.session} Academic Session
-          </Text>
-          <View style={S.footerBadge}>
-            <Text style={S.footerBadgeText}>OFFICIAL RESULT</Text>
+        {/* ════════════════════════════════════════
+            VACATION / RESUMPTION DATES
+        ════════════════════════════════════════ */}
+        {(attendance.vacationDate || attendance.resumptionDate) && (
+          <View style={S.datesRow}>
+            {attendance.vacationDate && (
+              <View style={S.dateItem}>
+                <Text style={S.dateLabel}>Date of Vacation</Text>
+                <Text style={S.dateValue}>
+                  {fmtDate(attendance.vacationDate)}
+                </Text>
+              </View>
+            )}
+            {attendance.resumptionDate && (
+              <View style={S.dateItem}>
+                <Text style={S.dateLabel}>Resumption Date</Text>
+                <Text style={S.dateValue}>
+                  {fmtDate(attendance.resumptionDate)}
+                </Text>
+              </View>
+            )}
           </View>
+        )}
+
+        {/* ════════════════════════════════════════
+            SIGNATURE ROW
+            ─────────────────────────────────────
+            3 columns:
+            [Class Teacher] [School Seal] [Principal]
+
+            KEY FIX: Images are rendered when available.
+            Placeholder lines/circles shown as fallback.
+        ════════════════════════════════════════ */}
+        <View style={S.sigRow}>
+          {/* ── Column 1: Class Teacher ──────────── */}
+          <View style={S.sigCell}>
+            <View style={S.sigLineBox}>
+              {/* Render uploaded signature image if available */}
+              {school.teacherSignature && (
+                <Image src={school.teacherSignature} style={S.sigImg} />
+              )}
+              {/* Empty space shown when no signature uploaded */}
+            </View>
+            <Text style={S.sigLabel}>Class Teacher</Text>
+          </View>
+
+          {/* ── Column 2: School Seal ────────────── */}
+          <View style={S.sigCell}>
+            {school.schoolSeal ? (
+              // ── Uploaded seal — show as circle image ─
+              <View style={S.sealOuter}>
+                <Image src={school.schoolSeal} style={S.sealImg} />
+              </View>
+            ) : (
+              // ── No seal — show dashed circle placeholder ─
+              <View style={S.sealPlaceholderOuter}>
+                <Text style={S.sealPlaceholderText}>{"OFFICIAL\nSEAL"}</Text>
+              </View>
+            )}
+            <Text style={S.sigLabel}>School Seal</Text>
+          </View>
+
+          {/* ── Column 3: Principal ──────────────── */}
+          <View style={S.sigCell}>
+            <View style={S.sigLineBox}>
+              {/* Render uploaded signature image if available */}
+              {school.principalSignature && (
+                <Image src={school.principalSignature} style={S.sigImg} />
+              )}
+              {/* Empty space shown when no signature uploaded */}
+            </View>
+            <Text style={S.sigLabel}>Principal&apos;s Signature</Text>
+          </View>
+        </View>
+
+        {/* ════════════════════════════════════════
+            DOCUMENT FOOTER
+        ════════════════════════════════════════ */}
+        <View style={S.docFooter}>
+          <Text style={S.docFooterText}>
+            This is a system-generated academic report. Verification of
+            authenticity can be done via the InnoCore Student Portal using the
+            Student ID / Registration Number.
+          </Text>
         </View>
       </Page>
     </Document>

@@ -23,7 +23,7 @@
 
 <br />
 
-[**Live Demo**](https://educore-demo.vercel.app) · [**API Docs**](#-api-reference) · [**Report Bug**](https://github.com/inno-stack/InnoCore/issues) · [**Request Feature**](https://github.com/inno-stack/educore/issues)
+[**Live Demo**](https://InnoCore-demo.vercel.app) · [**API Docs**](#-api-reference) · [**Report Bug**](https://github.com/inno-stack/InnoCore/issues) · [**Request Feature**](https://github.com/inno-stack/InnoCore/issues)
 
 <br />
 
@@ -202,7 +202,7 @@ Input: CA Score (max 40) + Exam Score (max 60)
 
 ### Multi-Tenancy Implementation
 
-EduCore uses a **shared database, isolated data** pattern. All tenants share the same PostgreSQL instance, but every query is automatically scoped by `schoolId`:
+InnoCore uses a **shared database, isolated data** pattern. All tenants share the same PostgreSQL instance, but every query is automatically scoped by `schoolId`:
 
 ```typescript
 // Pattern applied to EVERY protected query in the system
@@ -580,7 +580,7 @@ api.interceptors.response.use(
 
 ```bash
 git clone https://github.com/inno-stack/school-saas.git
-cd educore
+cd InnoCore
 ```
 
 ### 2. Install Dependencies
@@ -600,7 +600,7 @@ cp .env.example .env
 
 ```bash
 # Create the database
-psql -U postgres -c "CREATE DATABASE educore_db;"
+psql -U postgres -c "CREATE DATABASE InnoCore_db;"
 
 # Run all migrations
 npx prisma migrate dev
@@ -617,7 +617,7 @@ node prisma/create-super-admin.mjs
 
 ```
 ✅ Super admin created successfully!
-   Email:    superadmin@educore.com
+   Email:    superadmin@InnoCore.com
    Password: SuperAdmin@123
    Role:     SUPER_ADMIN
 ```
@@ -633,7 +633,7 @@ Open [http://localhost:3000](http://localhost:3000) → redirected to login.
 **Test credentials:**
 
 ```
-Super Admin:  superadmin@educore.com  / SuperAdmin@123
+Super Admin:  superadmin@InnoCore.com  / SuperAdmin@123
 School Admin: Register a school first via /register
 ```
 
@@ -661,7 +661,7 @@ Content-Type: application/json
 ### Development `.env`
 
 ```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/educore_dev"
+DATABASE_URL="postgresql://postgres:password@localhost:5432/InnoCore_dev"
 ACCESS_TOKEN_SECRET="dev-access-secret-at-least-32-characters-long"
 REFRESH_TOKEN_SECRET="dev-refresh-secret-at-least-32-characters-long"
 ACCESS_TOKEN_EXPIRES_IN="15m"
@@ -674,7 +674,7 @@ NODE_ENV="development"
 
 ```env
 # Use connection pooling for production
-DATABASE_URL="postgresql://user:pass@host:5432/educore?sslmode=require&connection_limit=10"
+DATABASE_URL="postgresql://user:pass@host:5432/InnoCore?sslmode=require&connection_limit=10"
 
 # Generate strong secrets: openssl rand -base64 64
 ACCESS_TOKEN_SECRET="<64-char-random-string>"
@@ -691,7 +691,7 @@ NODE_ENV="production"
 ## 📁 Project Structure
 
 ```
-educore/
+InnoCore/
 ├── prisma/
 │   ├── schema.prisma                  # 13-model schema with full relations
 │   ├── migrations/                    # Full migration history
@@ -790,7 +790,7 @@ educore/
 ```typescript
 // Standard approach gives WRONG results for ties:
 // Position: 1, 2, 2, 4 ← INCORRECT (skips 3)
-// EduCore uses competition ranking:
+// InnoCore uses competition ranking:
 // Position: 1, 1, 3, 4 ← CORRECT
 
 let currentPosition = 1;
@@ -996,7 +996,7 @@ Contributions are welcome! Here's how to get involved:
 
 ```bash
 # 1. Fork and clone
-git clone https://github.com/yourusername/educore.git
+git clone https://github.com/yourusername/InnoCore.git
 
 # 2. Create your feature branch
 git checkout -b feature/your-feature-name

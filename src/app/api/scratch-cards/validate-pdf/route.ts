@@ -3,14 +3,15 @@ import { getActivePeriod } from "@/lib/active-period";
 import { getOrdinal } from "@/lib/grade-engine";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
+import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
+import type { ReactElement } from "react";
 import { createElement } from "react";
-import type { DocumentProps }      from "@react-pdf/renderer";
-import type { ReactElement }       from "react";
 
 // ── POST /api/scratch-cards/validate-pdf ──────────
 // Public — validates PIN + returns PDF (no extra card use consumed)
+// Note: This is separate from the main PDF generation endpoint because we want to validate the scratch card and active period before attempting to generate the PDF (which is resource intensive), and we don't want to consume a use on the card if PDF generation fails for any reason (e.g. rendering error)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 1. Find student ────────────────────────────
+    // Note: We do this before consuming card use, so that if PDF generation fails we don't consume a use on the card (we only mark the card as used after successfully generating the PDF)
     const student = await prisma.student.findUnique({
       where: { regNumber },
       select: { id: true, schoolId: true, status: true },
@@ -31,6 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Find card ───────────────────────────────
+    // Note: We do this before consuming card use, so that if PDF generation fails we don't consume a use on the card (we only mark the card as used after successfully generating the PDF)
     const card = await prisma.scratchCard.findUnique({
       where: { pin },
       include: { session: { select: { id: true, name: true } } },
@@ -49,6 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 3. Get active period ───────────────────────
+    // Note: We do this before consuming card use, so that if PDF generation fails we don't consume a use on the card (we only mark the card as used after successfully generating the PDF)
     const { activePeriod, error: periodError } = await getActivePeriod(
       student.schoolId,
     );
@@ -57,6 +61,7 @@ export async function POST(req: NextRequest) {
     const { session, term } = activePeriod!;
 
     // ── 4. Card session must match active session ──
+    // Note: We do this before consuming card use, so that if PDF generation fails we don't consume a use on the card (we only mark the card as used after successfully generating the PDF)
     if (card.sessionId !== session.id) {
       return errorResponse(
         `This card is for the ${card.session.name} session.`,
@@ -80,6 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 6. Fetch result ────────────────────────────
+    // Note: We do this before consuming card use, so that if PDF generation fails we don't consume a use on the card (we only mark the card as used after successfully generating the PDF)
     const result = await prisma.result.findUnique({
       where: {
         studentId_termId: { studentId: student.id, termId: term.id },
@@ -105,6 +111,10 @@ export async function POST(req: NextRequest) {
             email: true,
             logo: true,
             motto: true,
+            // ── Signature images (base64 stored in DB) ────
+            teacherSignature: true,
+            schoolSeal: true,
+            principalSignature: true,
           },
         },
         items: {
@@ -124,8 +134,20 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 7. Build PDF data ──────────────────────────
+    // Note: We do this before consuming card use, so that if PDF generation fails we don't consume a use on the card
     const pdfData = {
-      school: result.school,
+      school: {
+        name: result.school.name,
+        address: result.school.address,
+        phone: result.school.phone,
+        email: result.school.email,
+        logo: result.school.logo ?? null,
+        motto: result.school.motto ?? null,
+        // ── Signature images ──────────────────────────
+        teacherSignature: result.school.teacherSignature ?? null,
+        schoolSeal: result.school.schoolSeal ?? null,
+        principalSignature: result.school.principalSignature ?? null,
+      },
       student: {
         fullName: `${result.student.lastName} ${result.student.firstName}${
           result.student.middleName ? " " + result.student.middleName : ""
@@ -147,9 +169,6 @@ export async function POST(req: NextRequest) {
         performance: result.performance,
       },
       attendance: {
-        daysOpen: result.daysOpen,
-        daysPresent: result.daysPresent,
-        daysAbsent: result.daysAbsent,
         vacationDate: result.vacationDate?.toISOString() ?? null,
         resumptionDate: result.resumptionDate?.toISOString() ?? null,
       },
@@ -168,12 +187,6 @@ export async function POST(req: NextRequest) {
           : null,
         classAverage: item.classAverage,
       })),
-      psychomotorSkills: result.skills
-        .filter((s) => s.category === "PSYCHOMOTOR")
-        .map((s) => ({ name: s.name, rating: s.rating })),
-      socialBehaviour: result.skills
-        .filter((s) => s.category === "SOCIAL")
-        .map((s) => ({ name: s.name, rating: s.rating })),
       comments: {
         teacher: result.teacherComment,
         teacherName: result.teacherName,
@@ -198,31 +211,32 @@ export async function POST(req: NextRequest) {
         { range: "0 - 44", grade: "F", description: "Fail", remark: "Poor" },
       ],
     };
-// ── Render PDF to binary buffer ────────────────────
-// Cast is safe — ResultSheet renders a <Document> at its root.
-const pdfBuffer = await renderToBuffer(
-  createElement(ResultSheet, { data: pdfData }) as ReactElement<DocumentProps>
-);
+    // ── Render PDF to binary buffer ────────────────────
+    // Cast is safe — ResultSheet renders a <Document> at its root.
+    const pdfBuffer = await renderToBuffer(
+      createElement(ResultSheet, {
+        data: pdfData,
+      }) as ReactElement<DocumentProps>,
+    );
 
     const filename =
       `Result_${result.student.lastName}_${result.term.name}_${result.session.name}.pdf`
         .replace(/\//g, "-")
         .replace(/\s+/g, "_");
-        
-// ── Convert Buffer → Uint8Array for Web Response API ──
-// Required because TypeScript's BodyInit does not accept Node.js Buffer
-// directly, but does accept Uint8Array which Buffer extends
-const uint8 = new Uint8Array(pdfBuffer);
 
-return new Response(uint8, {
-  status: 200,
-  headers: {
-    "Content-Type":        "application/pdf",
-    "Content-Disposition": `attachment; filename="${filename}"`,
-    "Content-Length":      uint8.byteLength.toString(),
-  },
-});
+    // ── Convert Buffer → Uint8Array for Web Response API ──
+    // Required because TypeScript's BodyInit does not accept Node.js Buffer
+    // directly, but does accept Uint8Array which Buffer extends
+    const uint8 = new Uint8Array(pdfBuffer);
 
+    return new Response(uint8, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": uint8.byteLength.toString(),
+      },
+    });
   } catch (err) {
     console.error("[VALIDATE_PDF]", err);
     return errorResponse("Failed to generate PDF", 500);

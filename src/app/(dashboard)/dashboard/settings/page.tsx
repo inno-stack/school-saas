@@ -16,8 +16,15 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 import api from "@/lib/api-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Loader2, Settings2 } from "lucide-react";
-import { useEffect } from "react";
+import {
+  Building2,
+  CheckCircle2,
+  Loader2,
+  Settings2,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -93,6 +100,60 @@ export default function SettingsPage() {
     onError: () => toast.error("Failed to save settings"),
   });
 
+  /**
+   * Add this query inside the component to fetch existing signatures
+   */
+  const { data: sigData, refetch: refetchSigs } = useQuery({
+    queryKey: ["school-signatures"],
+    queryFn: async () => {
+      const { data } = await api.get("/school/signatures");
+      return data.data as {
+        teacherSignature: string | null;
+        schoolSeal: string | null;
+        principalSignature: string | null;
+      };
+    },
+  });
+
+  /**
+   * Add signature state
+   */
+  const [sigPreviews, setSigPreviews] = useState<{
+    teacherSignature?: string | null;
+    schoolSeal?: string | null;
+    principalSignature?: string | null;
+  }>({});
+
+  const saveSigs = useMutation({
+    mutationFn: (data: typeof sigPreviews) =>
+      api.put("/school/signatures", data),
+    onSuccess: () => {
+      toast.success(
+        "Signature images saved! They will now appear on all result PDFs.",
+      );
+      refetchSigs();
+      setSigPreviews({});
+    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message ?? "Failed to save signatures"),
+  });
+
+  /**
+   * Converts a File to base64 data URL
+   */
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * Add "Signatures" as a third tab in the Tabs component:
+   */
+
   return (
     <div>
       <Header
@@ -106,10 +167,175 @@ export default function SettingsPage() {
             <TabsTrigger value="profile" className="gap-2">
               <Building2 className="w-4 h-4" /> School Profile
             </TabsTrigger>
+
             <TabsTrigger value="settings" className="gap-2">
               <Settings2 className="w-4 h-4" /> Preferences
             </TabsTrigger>
+
+            <TabsTrigger value="signatures" className="gap-2">
+              <Upload className="w-4 h-4" /> Signatures & Seal
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="signatures">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Result Sheet Signatures
+                </CardTitle>
+                <CardDescription>
+                  Upload images that will automatically appear on all result
+                  PDFs. Accepted formats: PNG, JPEG. Max size: 500KB each.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* ── Three upload slots ──────────────────── */}
+                {[
+                  {
+                    key: "teacherSignature" as const,
+                    label: "Class Teacher's Signature",
+                    desc: "Teacher's handwritten signature",
+                  },
+                  {
+                    key: "schoolSeal" as const,
+                    label: "School Seal / Stamp",
+                    desc: "Official circular school stamp",
+                  },
+                  {
+                    key: "principalSignature" as const,
+                    label: "Principal's Signature",
+                    desc: "Principal's handwritten signature",
+                  },
+                ].map((slot) => {
+                  // ── Current preview: newly uploaded or saved ─
+                  const currentImage =
+                    sigPreviews[slot.key] ?? sigData?.[slot.key] ?? null;
+
+                  return (
+                    <div key={slot.key} className="space-y-2">
+                      <Label>{slot.label}</Label>
+                      <p className="text-xs text-slate-400">{slot.desc}</p>
+
+                      <div className="flex items-start gap-4">
+                        {/* ── Preview box ──────────────────── */}
+                        <div className="w-32 h-20 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50 overflow-hidden flex-shrink-0">
+                          {currentImage ? (
+                            <img
+                              src={currentImage}
+                              alt={slot.label}
+                              className="w-full h-full object-contain p-1"
+                            />
+                          ) : (
+                            <p className="text-xs text-slate-400 text-center px-2">
+                              No image uploaded
+                            </p>
+                          )}
+                        </div>
+
+                        {/* ── Upload & Clear buttons ────────── */}
+                        <div className="space-y-2">
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+
+                                // ── Client-side size check ─────
+                                if (file.size > 500 * 1024) {
+                                  toast.error(
+                                    "Image too large. Please use an image under 500KB.",
+                                  );
+                                  return;
+                                }
+
+                                try {
+                                  const base64 = await fileToBase64(file);
+                                  setSigPreviews((prev) => ({
+                                    ...prev,
+                                    [slot.key]: base64,
+                                  }));
+                                  toast.info(
+                                    `${slot.label} ready. Click Save to apply.`,
+                                  );
+                                } catch {
+                                  toast.error("Failed to read image file.");
+                                }
+
+                                // ── Reset input so same file can be re-selected ─
+                                e.target.value = "";
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 pointer-events-none"
+                              asChild
+                            >
+                              <span>
+                                <Upload className="w-3.5 h-3.5" />
+                                {currentImage ? "Replace" : "Upload"}
+                              </span>
+                            </Button>
+                          </label>
+
+                          {/* ── Clear button — only if image exists ─ */}
+                          {currentImage && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() =>
+                                setSigPreviews((prev) => ({
+                                  ...prev,
+                                  [slot.key]: null,
+                                }))
+                              }
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* ── Save button ─────────────────────────── */}
+                <div className="pt-2 border-t border-slate-200">
+                  <Button
+                    onClick={() => saveSigs.mutate(sigPreviews)}
+                    disabled={
+                      saveSigs.isPending ||
+                      Object.keys(sigPreviews).length === 0
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 gap-2"
+                  >
+                    {saveSigs.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Save Signatures
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Once saved, signatures will automatically appear on all
+                    result PDFs generated for your school.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Profile Tab */}
           <TabsContent value="profile">

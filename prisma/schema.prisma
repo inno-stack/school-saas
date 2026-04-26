@@ -51,6 +51,12 @@ model School {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // ── Staff signature images for result PDF ──────
+  // Stored as base64 data URLs or cloud storage URLs
+  teacherSignature    String?   // class teacher signature image
+  schoolSeal          String?   // official school seal/stamp image
+  principalSignature  String?   // principal's signature image
+
   users       User[]
   students  Student[]
   classes   Class[] 

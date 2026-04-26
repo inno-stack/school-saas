@@ -3,13 +3,14 @@ import { requireAuth } from "@/lib/auth-guard";
 import { getOrdinal } from "@/lib/grade-engine";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
+import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
+import type { ReactElement } from "react";
 import { createElement } from "react";
-import type { DocumentProps }      from "@react-pdf/renderer";
-import type { ReactElement }       from "react";
 
 // ── GET /api/results/pdf?studentId=x&termId=y ─────
+// Note: This endpoint is separate from the parent-specific PDF generation endpoint because it has different auth requirements (only school staff can access, and they can access all results for their school — not just their own children + only published results)
 export async function GET(req: NextRequest) {
   const { auth, error } = requireAuth(req, [
     "SCHOOL_ADMIN",
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Fetch full result ──────────────────────────
+    // Note: We fetch the full result here (including related student, class, session, term, school, and subject data) because the PDF generation requires all of that data — and it's more efficient to fetch it all in one query than to do multiple queries later during PDF generation
     const result = await prisma.result.findUnique({
       where: {
         studentId_termId: { studentId, termId },
@@ -48,6 +50,7 @@ export async function GET(req: NextRequest) {
         class: { select: { name: true } },
         session: { select: { name: true } },
         term: { select: { name: true } },
+
         school: {
           select: {
             name: true,
@@ -56,6 +59,10 @@ export async function GET(req: NextRequest) {
             email: true,
             logo: true,
             motto: true,
+            // ── Signature images (base64 stored in DB) ────
+            teacherSignature: true,
+            schoolSeal: true,
+            principalSignature: true,
           },
         },
         items: {
@@ -78,8 +85,20 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Format data for PDF component ─────────────
+    // Note: We do this before consuming any scratch card use (in the case of the scratch card validation endpoint) so that if there are any issues with the data that cause PDF generation to fail, we don't consume a use on the card (we only mark the card as used after successfully generating the PDF)
     const pdfData = {
-      school: result.school,
+      school: {
+        name: result.school.name,
+        address: result.school.address,
+        phone: result.school.phone,
+        email: result.school.email,
+        logo: result.school.logo ?? null,
+        motto: result.school.motto ?? null,
+        // ── Signature images ──────────────────────────
+        teacherSignature: result.school.teacherSignature ?? null,
+        schoolSeal: result.school.schoolSeal ?? null,
+        principalSignature: result.school.principalSignature ?? null,
+      },
       student: {
         fullName: `${result.student.lastName} ${result.student.firstName}${
           result.student.middleName ? " " + result.student.middleName : ""
@@ -101,9 +120,6 @@ export async function GET(req: NextRequest) {
         performance: result.performance,
       },
       attendance: {
-        daysOpen: result.daysOpen,
-        daysPresent: result.daysPresent,
-        daysAbsent: result.daysAbsent,
         vacationDate: result.vacationDate?.toISOString() ?? null,
         resumptionDate: result.resumptionDate?.toISOString() ?? null,
       },
@@ -122,12 +138,7 @@ export async function GET(req: NextRequest) {
           : null,
         classAverage: item.classAverage,
       })),
-      psychomotorSkills: result.skills
-        .filter((s) => s.category === "PSYCHOMOTOR")
-        .map((s) => ({ name: s.name, rating: s.rating })),
-      socialBehaviour: result.skills
-        .filter((s) => s.category === "SOCIAL")
-        .map((s) => ({ name: s.name, rating: s.rating })),
+
       comments: {
         teacher: result.teacherComment,
         teacherName: result.teacherName,
@@ -153,23 +164,26 @@ export async function GET(req: NextRequest) {
       ],
     };
 
-   // ── Render result sheet to downloadable PDF buffer ─
-// Cast required: renderToBuffer expects DocumentProps at root.
-// ResultSheet wraps <Document> internally so the cast is safe.
-const pdfBuffer = await renderToBuffer(
-  createElement(ResultSheet, { data: pdfData }) as ReactElement<DocumentProps>
-);
+    // ── Render result sheet to downloadable PDF buffer ─
+    // Cast required: renderToBuffer expects DocumentProps at root.
+    // ResultSheet wraps <Document> internally so the cast is safe.
+    const pdfBuffer = await renderToBuffer(
+      createElement(ResultSheet, {
+        data: pdfData,
+      }) as ReactElement<DocumentProps>,
+    );
 
     // ── Build safe filename from student + term info ───
+    // Note: We do this after rendering the PDF so that if there are any issues with the student or term data that cause rendering to fail, we don't attempt to build a filename from potentially malformed data
     const filename =
       `Result_${result.student.lastName}_${result.term.name}_${result.session.name}.pdf`
         .replace(/\//g, "-")
         .replace(/\s+/g, "_");
 
-        // ── Convert Buffer → Uint8Array for Web Response API compatibility ──
-// Node.js Buffer is not directly assignable to BodyInit in TypeScript,
-// but Uint8Array is — and Buffer is a subclass so this is safe.
-const uint8 = new Uint8Array(pdfBuffer);
+    // ── Convert Buffer → Uint8Array for Web Response API compatibility ──
+    // Node.js Buffer is not directly assignable to BodyInit in TypeScript,
+    // but Uint8Array is — and Buffer is a subclass so this is safe.
+    const uint8 = new Uint8Array(pdfBuffer);
 
     return new Response(uint8, {
       status: 200,

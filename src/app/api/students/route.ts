@@ -173,7 +173,14 @@ export async function POST(req: NextRequest) {
 
     return successResponse(student, "Student created successfully", 201);
   } catch (err) {
-    console.error("[CREATE_STUDENT]", err);
+    // ── Log full error details for diagnosis ──────
+    const error = err as any;
+    console.error("[CREATE_STUDENT] Full error:", {
+      message: error?.message,
+      code: error?.code, // Prisma error code (e.g. P2002, P2003)
+      meta: error?.meta, // Prisma error metadata (table, field)
+      stack: error?.stack,
+    });
     return errorResponse("Internal server error", 500);
   }
 }

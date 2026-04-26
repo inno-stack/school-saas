@@ -160,4 +160,46 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /**
+ * Print styles — when user prints the check-result page,
+ * hide the background, header, form, and footer.
+ * Only the result card is printed.
+ */
+  @media print {
+    /* ── Hide everything by default ──────────────── */
+    body * {
+      visibility: hidden;
+    }
+
+    /* ── Show only the result card ─────────────────
+     Add id="print-result" to the result Card element */
+    #print-result,
+    #print-result * {
+      visibility: visible;
+    }
+
+    /* ── Position result at top of page ────────────  */
+    #print-result {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: white !important;
+      box-shadow: none !important;
+      border: none !important;
+      padding: 20px !important;
+    }
+
+    /* ── Hide browser default header/footer ─────── */
+    @page {
+      margin: 0.5cm;
+      size: A4 portrait;
+    }
+
+    /* ── Hide action buttons inside result ──────── */
+    .no-print {
+      display: none !important;
+    }
+  }
 }

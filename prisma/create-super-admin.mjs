@@ -12,7 +12,7 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const email = "superadmin@educore.com";
+  const email = "superadmin@InnoCore.com";
   const password = "SuperAdmin@123";
 
   // ── Check if already exists ────────────────────
@@ -34,9 +34,9 @@ async function main() {
   if (!systemSchool) {
     systemSchool = await prisma.school.create({
       data: {
-        name: "EduCore System",
+        name: "InnoCore System",
         slug: "system",
-        email: "system@educore.com",
+        email: "system@InnoCore.com",
       },
     });
     console.log("✅ System school created:", systemSchool.id);
