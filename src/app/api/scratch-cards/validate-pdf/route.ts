@@ -3,6 +3,7 @@ import { getActivePeriod } from "@/lib/active-period";
 import { getOrdinal } from "@/lib/grade-engine";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
+import { getSchoolForPdf } from "@/lib/school-cache";
 import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
@@ -132,6 +133,9 @@ export async function POST(req: NextRequest) {
     if (!result.isPublished) {
       return errorResponse("Results have not been published yet", 403);
     }
+
+    // ── Fetch school from cache (fast after first request) ─
+    const school = await getSchoolForPdf(result.schoolId);
 
     // ── 7. Build PDF data ──────────────────────────
     // Note: We do this before consuming card use, so that if PDF generation fails we don't consume a use on the card

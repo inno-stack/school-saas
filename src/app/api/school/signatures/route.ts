@@ -13,6 +13,7 @@
 import { requireAuth } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { invalidateSchoolCache } from "@/lib/school-cache";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -112,6 +113,7 @@ export async function PUT(req: NextRequest) {
         principalSignature: true,
       },
     });
+    invalidateSchoolCache(auth!.schoolId);
 
     return successResponse(
       updated,

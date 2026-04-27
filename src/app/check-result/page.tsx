@@ -1,7 +1,17 @@
-// ── Import Statements ─────────────────────────────────────────────────────
-// Importing necessary components and libraries
+/**
+ * @file src/app/check-result/page.tsx
+ * @description Public result checker with browser-compatible PDF printing.
+ *
+ * Print strategy:
+ * - Fetch the PDF blob from the server
+ * - Create a hidden iframe
+ * - Load the PDF into the iframe
+ * - Trigger iframe print — renders exact PDF design in all browsers
+ * - Fallback: download the PDF if iframe approach fails
+ */
 
 "use client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,8 +25,6 @@ import {
   BookOpen,
   Calendar,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   CreditCard,
   Download,
   GraduationCap,
@@ -25,14 +33,12 @@ import {
   Search,
   User,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-// ── Validation ─────────────────────────────────────────────
-// Defining the validation schema using Zod to ensure that the registration number and PIN inputs meet the required format before allowing form submission, enhancing user experience and preventing unnecessary API calls with invalid data.
-
+// ── Validation schema ──────────────────────────────
 const schema = z.object({
   regNumber: z.string().min(1, "Registration number is required"),
   pin: z
@@ -43,8 +49,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-// ── Types ───────────────────────────────────────────
-// Defining TypeScript interfaces for the result data structure returned by the API and used within the component to ensure type safety and better code readability.
+// ── Types ──────────────────────────────────────────
 interface SubjectResult {
   sn: number;
   name: string;
@@ -59,7 +64,6 @@ interface SubjectResult {
   classAverage: number | null;
 }
 
-// The ResultData interface defines the structure of the data returned from the API when a user checks their result. It includes information about the school, student, class, session, term, performance summary, attendance, subject results, psychomotor skills, social behaviour, comments from teachers and principals, and the grade key. This structured format allows for easy access and display of the relevant information in the UI.
 interface ResultData {
   school: {
     name: string;
@@ -113,8 +117,7 @@ interface ResultData {
   };
 }
 
-// ── Grade colors ────────────────────────────────────
-// Helper functions to determine the appropriate text and background colors for grades and performance ratings, enhancing the visual representation of the results and making it easier for users to quickly identify their performance levels.
+// ── Grade helpers ──────────────────────────────────
 function gradeColor(grade: string | null) {
   switch (grade) {
     case "A":
@@ -132,52 +135,6 @@ function gradeColor(grade: string | null) {
   }
 }
 
-// The gradeBg function returns the appropriate background and text color classes based on the grade value, allowing for consistent styling of grade indicators throughout the UI.
-function gradeBg(grade: string | null) {
-  switch (grade) {
-    case "A":
-      return "bg-green-100 text-green-700";
-    case "B":
-      return "bg-blue-100 text-blue-700";
-    case "C":
-      return "bg-orange-100 text-orange-700";
-    case "P":
-      return "bg-yellow-100 text-yellow-700";
-    case "F":
-      return "bg-red-100 text-red-700";
-    default:
-      return "bg-slate-100 text-slate-600";
-  }
-}
-
-// The PERF_COLORS constant defines a mapping of performance ratings to their corresponding background color classes, which can be used to visually differentiate performance levels in the UI.
-const PERF_COLORS: Record<string, string> = {
-  Distinction: "bg-green-500",
-  "Upper Credit": "bg-blue-500",
-  Credit: "bg-orange-500",
-  Pass: "bg-yellow-500",
-  Fail: "bg-red-500",
-};
-
-// The ratingLabel function converts the internal rating values for psychomotor and social behaviour skills into user-friendly labels that can be displayed in the UI, improving the clarity of the information presented to users.
-function ratingLabel(r: string | null) {
-  switch (r) {
-    case "EXCELLENT":
-      return "5 — Excellent";
-    case "GOOD":
-      return "4 — Good";
-    case "FAIR":
-      return "3 — Fair";
-    case "POOR":
-      return "2 — Poor";
-    case "VERY_POOR":
-      return "1 — Very Poor";
-    default:
-      return "—";
-  }
-}
-
-// The termLabel function converts the internal term identifiers into more readable labels that can be displayed in the UI, making it easier for users to understand which term the results correspond to.
 function termLabel(term: string) {
   return term === "FIRST"
     ? "1st Term"
@@ -186,7 +143,6 @@ function termLabel(term: string) {
       : "3rd Term";
 }
 
-// The formatDate function takes a date string as input and formats it into a more human-readable format (e.g., "12 Jan 2024"). If the input is null, it returns a placeholder ("—"), ensuring that the UI remains consistent even when certain date information is missing.
 function formatDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", {
@@ -196,14 +152,17 @@ function formatDate(d: string | null) {
   });
 }
 
-// ── Main Component ──────────────────────────────────
-// The CheckResultPage component is the main functional component that renders the result checking interface. It manages the state for the result data, form inputs, and UI interactions such as showing skills and downloading PDFs. It handles form submission to validate the scratch card and registration number, displays the results in a structured format, and provides options for users to download their results as a PDF or view additional details about their performance.
+// ── Main Component ─────────────────────────────────
 export default function CheckResultPage() {
   const [result, setResult] = useState<ResultData | null>(null);
   const [lastPin, setLastPin] = useState("");
   const [lastReg, setLastReg] = useState("");
   const [showSkills, setShowSkills] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [printing, setPrinting] = useState(false);
+
+  // ── Hidden iframe ref for cross-browser PDF printing ─
+  const printFrameRef = useRef<HTMLIFrameElement>(null);
 
   const {
     register,
@@ -211,8 +170,7 @@ export default function CheckResultPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  // ── Submit ──────────────────────────────────────
-  // The onSubmit function is called when the user submits the form to check their result. It sends a POST request to the API with the registration number and PIN, and if successful, it updates the state with the result data and displays any relevant messages about the scratch card usage. If there's an error during the API call, it shows an error message to the user.
+  // ── Validate scratch card and fetch result ─────
   async function onSubmit(values: FormData) {
     try {
       const { data } = await axios.post("/api/scratch-cards/validate", values);
@@ -224,26 +182,30 @@ export default function CheckResultPage() {
         toast.info(data.data.cardInfo.message, { duration: 6000 });
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message ?? "Something went wrong";
-      toast.error(msg, { duration: 5000 });
+      toast.error(err.response?.data?.message ?? "Something went wrong", {
+        duration: 5000,
+      });
     }
   }
 
+  // ── Fetch PDF blob from server ──────────────────
+  async function fetchPdfBlob(): Promise<Blob> {
+    const response = await axios.post(
+      "/api/scratch-cards/validate-pdf",
+      { regNumber: lastReg, pin: lastPin },
+      { responseType: "blob" },
+    );
+    return new Blob([response.data], { type: "application/pdf" });
+  }
+
   // ── Download PDF ────────────────────────────────
-  // The downloadPdf function allows users to download their result as a PDF file. It sends a POST request to the API to generate the PDF based on the last used registration number and PIN, and then triggers a download of the generated PDF file. It also handles loading states and error messages during the download process.
   async function downloadPdf() {
     if (!result || !lastPin || !lastReg) return;
     setDownloading(true);
     const toastId = toast.loading("Generating your result PDF...");
 
     try {
-      const response = await axios.post(
-        "/api/scratch-cards/validate-pdf",
-        { regNumber: lastReg, pin: lastPin },
-        { responseType: "blob" },
-      );
-
-      const blob = new Blob([response.data], { type: "application/pdf" });
+      const blob = await fetchPdfBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -252,28 +214,98 @@ export default function CheckResultPage() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
       toast.success("PDF downloaded!", { id: toastId });
     } catch {
-      toast.error("Failed to download PDF. Please try again.", { id: toastId });
+      toast.error("Failed to download PDF.", { id: toastId });
     } finally {
       setDownloading(false);
     }
   }
 
   /**
-   * Print handler — uses browser print with CSS media querys to optimize the print layout and hide unnecessary UI elements, allowing users to easily print their result sheet directly from the browser.
-   * to hide everything except the result sheet itself
+   * Cross-browser PDF print using a hidden iframe.
+   *
+   * How it works:
+   * 1. Fetch the PDF blob from the server
+   * 2. Create a blob URL and load it into a hidden <iframe>
+   * 3. Wait for the iframe to load the PDF
+   * 4. Call iframe.contentWindow.print()
+   * 5. Browser shows its native print dialog with the exact PDF
+   *
+   * This approach works in:
+   * ✅ Chrome — uses Chrome's built-in PDF viewer in iframe
+   * ✅ Firefox — uses PDF.js viewer in iframe
+   * ✅ Edge — uses Edge's PDF viewer
+   * ✅ Safari — falls back to download if PDF iframe not supported
    */
-  function handlePrint() {
-    window.print();
+  async function handlePrint() {
+    if (!result || !lastPin || !lastReg) return;
+    setPrinting(true);
+    const toastId = toast.loading("Preparing PDF for print...");
+
+    try {
+      const blob = await fetchPdfBlob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      // ── Method 1: Hidden iframe (Chrome, Firefox, Edge) ─
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = `
+        position: fixed;
+        top: -9999px;
+        left: -9999px;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        border: none;
+      `;
+      iframe.src = blobUrl;
+
+      iframe.onload = () => {
+        try {
+          // ── Trigger print from within the iframe ──────
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          toast.success("Print dialog opened!", { id: toastId });
+        } catch {
+          // ── Fallback: open PDF in new tab ─────────────
+          window.open(blobUrl, "_blank");
+          toast.success("PDF opened in new tab — use Ctrl+P to print", {
+            id: toastId,
+          });
+        }
+
+        // ── Clean up after print dialog closes ─────────
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(blobUrl);
+        }, 60_000); // 60s delay — enough time for print dialog
+      };
+
+      iframe.onerror = () => {
+        // ── Fallback: download PDF ─────────────────────
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = `Result_${result.student.fullName}.pdf`;
+        link.click();
+        toast.success("PDF downloaded — open it to print", { id: toastId });
+        URL.revokeObjectURL(blobUrl);
+      };
+
+      document.body.appendChild(iframe);
+    } catch (err) {
+      console.error("[PRINT]", err);
+      toast.error("Failed to prepare print. Try the Download button instead.", {
+        id: toastId,
+      });
+    } finally {
+      setPrinting(false);
+    }
   }
 
-  // ── UI ──────────────────────────────────────────
-
+  // ── Render ─────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
-      {/* Background dots */}
+      {/* Background dots pattern */}
       <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
@@ -283,12 +315,12 @@ export default function CheckResultPage() {
       />
 
       <div className="relative z-10 max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-6 lg:py-10">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-2xl mb-5">
-            <GraduationCap className="w-8 h-8 text-white" />
+        {/* ── Page Header ─────────────────────── */}
+        <div className="text-center mb-8 lg:mb-10">
+          <div className="inline-flex items-center justify-center w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-600 shadow-2xl mb-4 lg:mb-5">
+            <GraduationCap className="w-7 h-7 lg:w-8 lg:h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">
             InnoCore Result Portal
           </h1>
           <p className="text-blue-300 text-sm max-w-md mx-auto">
@@ -297,16 +329,13 @@ export default function CheckResultPage() {
           </p>
         </div>
 
-        {/* Search Form */}
-        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur mb-8">
-          <CardContent className="pt-6 pb-6">
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="flex flex-col gap-4"
-            >
+        {/* ── Search Form ─────────────────────── */}
+        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur mb-6 lg:mb-8">
+          <CardContent className="pt-5 pb-5 px-4 lg:px-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Reg Number */}
-                <div className="flex-1 space-y-1.5">
+                <div className="space-y-1.5">
                   <Label className="text-slate-700 font-medium">
                     Registration Number
                   </Label>
@@ -327,7 +356,7 @@ export default function CheckResultPage() {
                 </div>
 
                 {/* PIN */}
-                <div className="flex-1 space-y-1.5">
+                <div className="space-y-1.5">
                   <Label className="text-slate-700 font-medium">
                     Scratch Card PIN
                   </Label>
@@ -352,7 +381,7 @@ export default function CheckResultPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="h-11 px-8 bg-blue-600 hover:bg-blue-700 gap-2 sm:mb-0"
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -373,17 +402,16 @@ export default function CheckResultPage() {
               <CreditCard className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-blue-700">
                 Each scratch card can be used <strong>4 times</strong> across
-                all 3 terms of one academic session. Cards from a previous
-                session cannot be used for a new session.
+                all 3 terms of one academic session.
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Result Sheet */}
+        {/* ── Result Display ───────────────────── */}
         {result && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Card Usage Info */}
+            {/* Card usage info */}
             {result.cardInfo && (
               <div
                 className={cn(
@@ -414,25 +442,22 @@ export default function CheckResultPage() {
               </div>
             )}
 
-            {/* Main Result Card */}
-            <Card
-              id="print-result"
-              className="border-0 shadow-2xl bg-white overflow-hidden"
-            >
-              {/* School Header */}
-              <div className="bg-gradient-to-r from-slate-800 to-blue-900 p-6 text-white">
+            {/* Main result card */}
+            <Card className="border-0 shadow-2xl bg-white overflow-hidden">
+              {/* School header */}
+              <div className="bg-gradient-to-r from-slate-800 to-blue-900 p-5 lg:p-6 text-white">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold uppercase tracking-wide">
+                  <div className="min-w-0">
+                    <h2 className="text-lg lg:text-xl font-bold uppercase tracking-wide">
                       {result.school.name}
                     </h2>
                     {result.school.motto && (
-                      <p className="text-blue-200 text-sm italic mt-1">
+                      <p className="text-blue-200 text-xs italic mt-1">
                         &quot;{result.school.motto}&quot;
                       </p>
                     )}
                     {result.school.address && (
-                      <p className="text-slate-300 text-xs mt-1">
+                      <p className="text-slate-300 text-xs mt-1 truncate">
                         {result.school.address}
                       </p>
                     )}
@@ -442,9 +467,8 @@ export default function CheckResultPage() {
                         .join(" · ")}
                     </p>
                   </div>
-
                   <div className="flex-shrink-0 text-right">
-                    <div className="bg-white/10 rounded-xl px-4 py-2 inline-block">
+                    <div className="bg-white/10 rounded-xl px-3 py-2 inline-block">
                       <p className="text-xs text-blue-200 mb-0.5">
                         Academic Report
                       </p>
@@ -457,8 +481,8 @@ export default function CheckResultPage() {
                 </div>
               </div>
 
-              <CardContent className="p-6 space-y-6">
-                {/* Student Info Grid */}
+              <CardContent className="p-4 lg:p-6 space-y-5">
+                {/* Student info */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     {
@@ -498,7 +522,7 @@ export default function CheckResultPage() {
                   })}
                 </div>
 
-                {/* Performance Summary Band */}
+                {/* Performance summary */}
                 <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   {[
                     {
@@ -558,92 +582,64 @@ export default function CheckResultPage() {
                   ))}
                 </div>
 
-                {/* Attendance */}
-                {(result.attendance.daysOpen ||
-                  result.attendance.daysPresent) && (
+                {/* Dates */}
+                {(result.attendance.vacationDate ||
+                  result.attendance.resumptionDate) && (
                   <div className="flex flex-wrap gap-3">
-                    {[
-                      { label: "Days Open", value: result.attendance.daysOpen },
-                      {
-                        label: "Days Present",
-                        value: result.attendance.daysPresent,
-                      },
-                      {
-                        label: "Days Absent",
-                        value: result.attendance.daysAbsent,
-                      },
-                      {
-                        label: "Vacation",
-                        value: formatDate(result.attendance.vacationDate),
-                      },
-                      {
-                        label: "Resumption",
-                        value: formatDate(result.attendance.resumptionDate),
-                      },
-                    ].map(
-                      (item) =>
-                        item.value !== null &&
-                        item.value !== undefined && (
-                          <div
-                            key={item.label}
-                            className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-center"
-                          >
-                            <p className="text-xs text-slate-400">
-                              {item.label}
-                            </p>
-                            <p className="font-bold text-slate-700 text-sm">
-                              {item.value}
-                            </p>
-                          </div>
-                        ),
+                    {result.attendance.vacationDate && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-center">
+                        <p className="text-xs text-slate-400">Vacation</p>
+                        <p className="font-bold text-slate-700 text-sm">
+                          {formatDate(result.attendance.vacationDate)}
+                        </p>
+                      </div>
+                    )}
+                    {result.attendance.resumptionDate && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-center">
+                        <p className="text-xs text-slate-400">Resumption</p>
+                        <p className="font-bold text-slate-700 text-sm">
+                          {formatDate(result.attendance.resumptionDate)}
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
 
                 <Separator />
 
-                {/* Results Table */}
+                {/* Subjects table */}
                 <div>
                   <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide mb-3">
                     Subject Results
                   </h3>
 
-                  {/* Desktop Table */}
+                  {/* Desktop table */}
                   <div className="hidden md:block rounded-xl border border-slate-200 overflow-hidden">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-slate-800 text-white">
-                          <th className="text-left px-3 py-2.5 text-xs font-semibold">
-                            #
-                          </th>
-                          <th className="text-left px-3 py-2.5 text-xs font-semibold">
-                            Subject
-                          </th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold">
-                            CA (40)
-                          </th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold">
-                            Exam (60)
-                          </th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold">
-                            Total
-                          </th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold">
-                            Grade
-                          </th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold">
-                            Remark
-                          </th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold">
-                            Position
-                          </th>
-                          <th className="text-center px-3 py-2.5 text-xs font-semibold">
-                            Class Avg
-                          </th>
+                          {[
+                            "#",
+                            "Subject",
+                            "CA (40)",
+                            "Exam (60)",
+                            "Total",
+                            "Grade",
+                            "Remark",
+                            "Position",
+                            "Class Avg",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              className="px-3 py-2.5 text-xs font-semibold text-left first:text-center"
+                            >
+                              {h}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {result.subjects.map((subj, i) => (
+                        {result.subjects.map((s, i) => (
                           <tr
                             key={i}
                             className={cn(
@@ -651,54 +647,54 @@ export default function CheckResultPage() {
                               i % 2 === 0 ? "bg-white" : "bg-slate-50",
                             )}
                           >
-                            <td className="px-3 py-2.5 text-slate-400 text-xs">
-                              {subj.sn}
+                            <td className="px-3 py-2.5 text-center text-slate-400 text-xs">
+                              {s.sn}
                             </td>
-                            <td className="px-3 py-2.5 font-medium text-slate-800">
-                              {subj.name}
+                            <td className="px-3 py-2.5 font-semibold text-slate-800">
+                              {s.name}
                             </td>
-                            <td className="px-3 py-2.5 text-center text-slate-600">
-                              {subj.caScore ?? "—"}
+                            <td className="px-3 py-2.5 text-center">
+                              {s.caScore ?? "—"}
                             </td>
-                            <td className="px-3 py-2.5 text-center text-slate-600">
-                              {subj.examScore ?? "—"}
+                            <td className="px-3 py-2.5 text-center">
+                              {s.examScore ?? "—"}
                             </td>
-                            <td className="px-3 py-2.5 text-center font-bold text-slate-800">
-                              {subj.totalScore ?? "—"}
+                            <td className="px-3 py-2.5 text-center font-bold">
+                              {s.totalScore ?? "—"}
                             </td>
                             <td className="px-3 py-2.5 text-center">
                               <span
                                 className={cn(
-                                  "inline-block w-7 h-7 rounded-full text-xs font-bold leading-7 text-center text-white",
-                                  subj.grade === "A"
+                                  "inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white",
+                                  s.grade === "A"
                                     ? "bg-green-500"
-                                    : subj.grade === "B"
+                                    : s.grade === "B"
                                       ? "bg-blue-500"
-                                      : subj.grade === "C"
+                                      : s.grade === "C"
                                         ? "bg-orange-500"
-                                        : subj.grade === "P"
+                                        : s.grade === "P"
                                           ? "bg-yellow-500"
-                                          : subj.grade === "F"
+                                          : s.grade === "F"
                                             ? "bg-red-500"
                                             : "bg-slate-400",
                                 )}
                               >
-                                {subj.grade ?? "—"}
+                                {s.grade ?? "—"}
                               </span>
                             </td>
                             <td
                               className={cn(
-                                "px-3 py-2.5 text-center text-xs font-semibold",
-                                gradeColor(subj.grade),
+                                "px-3 py-2.5 text-xs font-semibold",
+                                gradeColor(s.grade),
                               )}
                             >
-                              {subj.remark ?? "—"}
+                              {s.remark ?? "—"}
                             </td>
-                            <td className="px-3 py-2.5 text-center text-slate-600 text-xs font-semibold">
-                              {subj.positionInClass ?? "—"}
+                            <td className="px-3 py-2.5 text-center text-xs">
+                              {s.positionInClass ?? "—"}
                             </td>
-                            <td className="px-3 py-2.5 text-center text-slate-500 text-xs">
-                              {subj.classAverage ?? "—"}
+                            <td className="px-3 py-2.5 text-center text-xs text-slate-500">
+                              {s.classAverage ?? "—"}
                             </td>
                           </tr>
                         ))}
@@ -706,207 +702,71 @@ export default function CheckResultPage() {
                     </table>
                   </div>
 
-                  {/* Mobile Cards */}
+                  {/* Mobile cards */}
                   <div className="md:hidden space-y-2">
-                    {result.subjects.map((subj, i) => (
+                    {result.subjects.map((s, i) => (
                       <div
                         key={i}
                         className="bg-slate-50 border border-slate-200 rounded-xl p-3"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="font-semibold text-slate-800 text-sm">
-                            {subj.name}
+                            {s.name}
                           </p>
                           <span
                             className={cn(
                               "inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white",
-                              subj.grade === "A"
+                              s.grade === "A"
                                 ? "bg-green-500"
-                                : subj.grade === "B"
+                                : s.grade === "B"
                                   ? "bg-blue-500"
-                                  : subj.grade === "C"
+                                  : s.grade === "C"
                                     ? "bg-orange-500"
-                                    : subj.grade === "P"
+                                    : s.grade === "P"
                                       ? "bg-yellow-500"
-                                      : subj.grade === "F"
+                                      : s.grade === "F"
                                         ? "bg-red-500"
                                         : "bg-slate-400",
                             )}
                           >
-                            {subj.grade ?? "—"}
+                            {s.grade ?? "—"}
                           </span>
                         </div>
                         <div className="grid grid-cols-4 gap-2 text-xs text-center">
                           <div>
                             <p className="text-slate-400">CA</p>
-                            <p className="font-semibold">
-                              {subj.caScore ?? "—"}
-                            </p>
+                            <p className="font-semibold">{s.caScore ?? "—"}</p>
                           </div>
                           <div>
                             <p className="text-slate-400">Exam</p>
                             <p className="font-semibold">
-                              {subj.examScore ?? "—"}
+                              {s.examScore ?? "—"}
                             </p>
                           </div>
                           <div>
                             <p className="text-slate-400">Total</p>
                             <p className="font-bold text-slate-800">
-                              {subj.totalScore ?? "—"}
+                              {s.totalScore ?? "—"}
                             </p>
                           </div>
                           <div>
                             <p className="text-slate-400">Pos.</p>
                             <p className="font-semibold">
-                              {subj.positionInClass ?? "—"}
+                              {s.positionInClass ?? "—"}
                             </p>
                           </div>
                         </div>
                         <p
                           className={cn(
                             "text-xs font-semibold mt-1.5 text-center",
-                            gradeColor(subj.grade),
+                            gradeColor(s.grade),
                           )}
                         >
-                          {subj.remark ?? ""}
+                          {s.remark ?? ""}
                         </p>
                       </div>
                     ))}
                   </div>
-                </div>
-
-                {/* Skills Section */}
-                {(result.psychomotorSkills.length > 0 ||
-                  result.socialBehaviour.length > 0) && (
-                  <div>
-                    <button
-                      onClick={() => setShowSkills(!showSkills)}
-                      className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors"
-                    >
-                      {showSkills ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
-                      Psychomotor & Social Behaviour Skills
-                    </button>
-
-                    {showSkills && (
-                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Psychomotor */}
-                        {result.psychomotorSkills.length > 0 && (
-                          <div className="border border-slate-200 rounded-xl overflow-hidden">
-                            <div className="bg-slate-800 px-4 py-2.5">
-                              <p className="text-xs font-bold text-white uppercase tracking-wide">
-                                Psychomotor Skills
-                              </p>
-                            </div>
-                            {result.psychomotorSkills.map((s, i) => (
-                              <div
-                                key={i}
-                                className={cn(
-                                  "flex justify-between items-center px-4 py-2.5 text-sm border-t border-slate-100",
-                                  i % 2 === 0 ? "bg-white" : "bg-slate-50",
-                                )}
-                              >
-                                <span className="text-slate-700">{s.name}</span>
-                                <span className="font-semibold text-blue-600 text-xs">
-                                  {ratingLabel(s.rating)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Social Behaviour */}
-                        {result.socialBehaviour.length > 0 && (
-                          <div className="border border-slate-200 rounded-xl overflow-hidden">
-                            <div className="bg-slate-800 px-4 py-2.5">
-                              <p className="text-xs font-bold text-white uppercase tracking-wide">
-                                Social Behaviour
-                              </p>
-                            </div>
-                            {result.socialBehaviour.map((s, i) => (
-                              <div
-                                key={i}
-                                className={cn(
-                                  "flex justify-between items-center px-4 py-2.5 text-sm border-t border-slate-100",
-                                  i % 2 === 0 ? "bg-white" : "bg-slate-50",
-                                )}
-                              >
-                                <span className="text-slate-700">{s.name}</span>
-                                <span className="font-semibold text-blue-600 text-xs">
-                                  {ratingLabel(s.rating)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Grade Key */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-100 px-4 py-2">
-                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                      Grade Key
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 p-3">
-                    {result.gradeKey.map((g) => (
-                      <div
-                        key={g.grade}
-                        className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5"
-                      >
-                        <span
-                          className={cn(
-                            "w-6 h-6 rounded text-xs font-bold flex items-center justify-center text-white",
-                            g.grade === "A"
-                              ? "bg-green-500"
-                              : g.grade === "B"
-                                ? "bg-blue-500"
-                                : g.grade === "C"
-                                  ? "bg-orange-500"
-                                  : g.grade === "P"
-                                    ? "bg-yellow-500"
-                                    : "bg-red-500",
-                          )}
-                        >
-                          {g.grade}
-                        </span>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-700">
-                            {g.description}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {g.range} — {g.remark}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Summary Sentence */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-                  <p className="text-sm font-semibold text-blue-800">
-                    Dear {result.student.fullName}, you made{" "}
-                    {Object.entries(
-                      result.subjects.reduce(
-                        (acc, s) => {
-                          if (s.grade) acc[s.grade] = (acc[s.grade] || 0) + 1;
-                          return acc;
-                        },
-                        {} as Record<string, number>,
-                      ),
-                    )
-                      .map(([g, c]) => `${c} ${g}(s)`)
-                      .join(", ")}{" "}
-                    in your {termLabel(result.term)} of {result.session}{" "}
-                    Academic Session.
-                  </p>
                 </div>
 
                 {/* Comments */}
@@ -931,7 +791,6 @@ export default function CheckResultPage() {
                         </div>
                       </div>
                     )}
-
                     {result.comments.principal && (
                       <div className="border border-slate-200 rounded-xl overflow-hidden">
                         <div className="bg-blue-600 px-4 py-2.5">
@@ -941,7 +800,7 @@ export default function CheckResultPage() {
                         </div>
                         <div className="p-4">
                           <p className="text-sm text-slate-700 italic">
-                            &quot;{result.comments.principal}&quot;
+                            "{result.comments.principal}"
                           </p>
                           {result.comments.principalName && (
                             <p className="text-xs font-semibold text-slate-500 mt-2">
@@ -954,8 +813,8 @@ export default function CheckResultPage() {
                   </div>
                 )}
 
-                {/* Download Button */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-2 no-print">
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button
                     onClick={downloadPdf}
                     disabled={downloading}
@@ -964,30 +823,39 @@ export default function CheckResultPage() {
                     {downloading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Generating PDF...
+                        Generating...
                       </>
                     ) : (
                       <>
                         <Download className="w-4 h-4" />
-                        Download Result as PDF
+                        Download PDF
                       </>
                     )}
                   </Button>
-                  {/* ── Print button — opens exact PDF in new tab ── */}
                   <Button
                     variant="outline"
                     onClick={handlePrint}
-                    className="gap-2 h-11 no-print"
+                    disabled={printing}
+                    className="gap-2 h-11 sm:w-auto"
                   >
-                    <Printer className="w-4 h-4" />
-                    Print Result
+                    {printing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Preparing...
+                      </>
+                    ) : (
+                      <>
+                        <Printer className="w-4 h-4" />
+                        Print Result
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Check Another Result */}
-            <div className="text-center no-print">
+            {/* Check another */}
+            <div className="text-center">
               <button
                 onClick={() => setResult(null)}
                 className="text-blue-300 hover:text-white text-sm underline underline-offset-4 transition-colors"
@@ -999,7 +867,7 @@ export default function CheckResultPage() {
         )}
 
         {/* Footer */}
-        <div className="text-center mt-10 text-slate-500 text-xs">
+        <div className="text-center mt-8 text-slate-500 text-xs">
           <p>
             Powered by{" "}
             <span className="text-blue-400 font-semibold">InnoCore</span> —

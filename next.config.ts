@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
 
+  experimental: {
+    serverActionsBodySizeLimit: "10mb", // allow large base64 images
+  },
+
   // Image optimization
   images: {
     formats: ["image/avif", "image/webp"],

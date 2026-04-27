@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import { getOrdinal } from "@/lib/grade-engine";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
+import { getSchoolForPdf } from "@/lib/school-cache";
 import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
@@ -92,6 +93,9 @@ export async function GET(
     if (result.schoolId !== auth!.schoolId) {
       return errorResponse("Result not found", 404);
     }
+
+    // ── Fetch school from cache (fast after first request) ─
+    const school = await getSchoolForPdf(result.schoolId);
 
     // Parents can only download published results
     // Note: We do this after verifying the parent-child link, so that if the result exists but is not published, we don't leak that information to unauthorized users

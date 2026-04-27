@@ -15,14 +15,13 @@ export const updateSchoolProfileSchema = z.object({
 
   motto: z.string().max(255).optional().nullable(),
 
-  logo: z.string().url("Invalid logo URL").optional().nullable(),
+  logo: z.string().optional().nullable(),
 });
 
 export const updateSchoolSettingsSchema = z.object({
   termName: z
-   
 
-.enum(["Term", "Semester"], "termName must be 'Term' or 'Semester'")
+    .enum(["Term", "Semester"], "termName must be 'Term' or 'Semester'")
     .optional(),
 
   resultPin: z.boolean().optional(),

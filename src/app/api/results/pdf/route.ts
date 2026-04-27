@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import { getOrdinal } from "@/lib/grade-engine";
 import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/response";
+import { getSchoolForPdf } from "@/lib/school-cache";
 import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest } from "next/server";
@@ -50,7 +51,6 @@ export async function GET(req: NextRequest) {
         class: { select: { name: true } },
         session: { select: { name: true } },
         term: { select: { name: true } },
-
         school: {
           select: {
             name: true,
@@ -71,7 +71,6 @@ export async function GET(req: NextRequest) {
           },
           orderBy: { subject: { name: "asc" } },
         },
-        skills: { orderBy: { name: "asc" } },
       },
     });
 
@@ -83,6 +82,8 @@ export async function GET(req: NextRequest) {
     if (result.schoolId !== auth!.schoolId) {
       return errorResponse("Result not found", 404);
     }
+    // ── Fetch school from cache (fast after first request) ─
+    const school = await getSchoolForPdf(result.schoolId);
 
     // ── Format data for PDF component ─────────────
     // Note: We do this before consuming any scratch card use (in the case of the scratch card validation endpoint) so that if there are any issues with the data that cause PDF generation to fail, we don't consume a use on the card (we only mark the card as used after successfully generating the PDF)

@@ -1,10 +1,17 @@
+/**
+ * @file src/app/api/school/profile/route.ts
+ * @description School profile GET and PUT endpoints.
+ * Logo field included in all selects and update operations.
+ */
+
 import { requireAuth } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, successResponse } from "@/lib/response";
+import { invalidateSchoolCache } from "@/lib/school-cache";
 import { updateSchoolProfileSchema } from "@/validators/school.validator";
 import { NextRequest } from "next/server";
 
-// ─── GET /api/school/profile ───────────────────────────────────────────────
+// ── GET /api/school/profile ────────────────────────
 export async function GET(req: NextRequest) {
   const { auth, error } = requireAuth(req, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   if (error) return error;
@@ -19,7 +26,7 @@ export async function GET(req: NextRequest) {
         email: true,
         phone: true,
         address: true,
-        logo: true,
+        logo: true, // ← include logo in GET
         website: true,
         motto: true,
         isActive: true,
@@ -39,7 +46,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ─── PUT /api/school/profile ───────────────────────────────────────────────
+// ── PUT /api/school/profile ────────────────────────
 export async function PUT(req: NextRequest) {
   const { auth, error } = requireAuth(req, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   if (error) return error;
@@ -47,25 +54,26 @@ export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Validate input
+    // ── Validate — logo now accepted by schema ─────
     const parsed = updateSchoolProfileSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse("Validation failed", 422, parsed.error.flatten());
     }
 
-    // Ensure school exists and belongs to this tenant
+    // ── Verify school exists ───────────────────────
     const existing = await prisma.school.findUnique({
       where: { id: auth!.schoolId },
+      select: { id: true },
     });
 
     if (!existing) {
       return errorResponse("School not found", 404);
     }
 
-    // Update school profile
+    // ── Update including logo ──────────────────────
     const updated = await prisma.school.update({
       where: { id: auth!.schoolId },
-      data: parsed.data,
+      data: parsed.data, // logo is now part of parsed.data
       select: {
         id: true,
         name: true,
@@ -73,12 +81,13 @@ export async function PUT(req: NextRequest) {
         email: true,
         phone: true,
         address: true,
-        logo: true,
+        logo: true, // ← return logo in response
         website: true,
         motto: true,
         updatedAt: true,
       },
     });
+    invalidateSchoolCache(auth!.schoolId);
 
     return successResponse(updated, "School profile updated successfully");
   } catch (err) {
