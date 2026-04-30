@@ -1,3 +1,4 @@
+"use client";
 /**
  * @file src/app/check-result/page.tsx
  * @description Student Result Access Portal.
@@ -15,8 +16,6 @@
  * - Login link back to dashboard
  * - Footer with Privacy Policy + Terms of Service
  */
-
-"use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

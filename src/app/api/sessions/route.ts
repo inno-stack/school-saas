@@ -6,12 +6,12 @@ import { NextRequest } from "next/server";
 
 // ── GET /api/sessions ──────────────────────────────
 export async function GET(req: NextRequest) {
-  const { auth, error } = requireAuth(req, [
+  const { auth, error } = await requireAuth(req, [
     "SCHOOL_ADMIN",
     "TEACHER",
     "SUPER_ADMIN",
   ]);
-  if (error) return error;
+  if (error || !auth) return error;
 
   try {
     const sessions = await prisma.session.findMany({
@@ -50,8 +50,11 @@ export async function GET(req: NextRequest) {
 
 // ── POST /api/sessions ─────────────────────────────
 export async function POST(req: NextRequest) {
-  const { auth, error } = requireAuth(req, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
-  if (error) return error;
+  const { auth, error } = await requireAuth(req, [
+    "SCHOOL_ADMIN",
+    "SUPER_ADMIN",
+  ]);
+  if (error || !auth) return error;
 
   try {
     const body = await req.json();
@@ -66,7 +69,10 @@ export async function POST(req: NextRequest) {
     // Check duplicate session name within this school
     const existing = await prisma.session.findUnique({
       where: {
-        name_schoolId: { name, schoolId: auth!.schoolId },
+        name_schoolId: {
+          name: name,
+          schoolId: auth.schoolId,
+        },
       },
     });
 

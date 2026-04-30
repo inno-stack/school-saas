@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       {/* 3. Use GeistSans.className here */}
       <body className={GeistSans.className}>
         <QueryProvider>

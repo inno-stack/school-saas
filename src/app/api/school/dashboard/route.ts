@@ -5,27 +5,30 @@ import { NextRequest } from "next/server";
 
 // ─── GET /api/school/dashboard ─────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const { auth, error } = requireAuth(req, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
-  if (error) return error;
+  const { auth, error } = await requireAuth(req, [
+    "SCHOOL_ADMIN",
+    "SUPER_ADMIN",
+  ]);
+  if (error || !auth) return error;
 
   try {
     // Parallel queries for performance
     const [totalTeachers, totalParents, totalStudents, totalResults, school] =
       await Promise.all([
         prisma.user.count({
-          where: { schoolId: auth!.schoolId, role: "TEACHER", isActive: true },
+          where: { schoolId: auth.schoolId, role: "TEACHER", isActive: true },
         }),
         prisma.user.count({
-          where: { schoolId: auth!.schoolId, role: "PARENT", isActive: true },
+          where: { schoolId: auth.schoolId, role: "PARENT", isActive: true },
         }),
         prisma.student.count({
-          where: { schoolId: auth!.schoolId, status: "ACTIVE" },
+          where: { schoolId: auth.schoolId, status: "ACTIVE" },
         }),
         prisma.result.count({
-          where: { schoolId: auth!.schoolId, isPublished: true },
+          where: { schoolId: auth.schoolId, isPublished: true },
         }),
         prisma.school.findUnique({
-          where: { id: auth!.schoolId },
+          where: { id: auth.schoolId },
           select: { name: true, slug: true, createdAt: true },
         }),
       ]);
@@ -44,6 +47,18 @@ export async function GET(req: NextRequest) {
     );
   } catch (err) {
     console.error("[GET_DASHBOARD]", err);
+
+    // Check if it's a database connection error specifically
+    if (
+      err instanceof Error &&
+      err.message.includes("Can't reach database server")
+    ) {
+      return errorResponse(
+        "Database connection timeout. Please try again.",
+        503,
+      );
+    }
+
     return errorResponse("Internal server error", 500);
   }
 }
