@@ -16,7 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, GraduationCap, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -53,6 +53,20 @@ export default function LoginPage() {
       );
     }
   }
+
+  /**
+   * Add to login page component — shows inactivity logout message.
+   * Place near the top of the component, after useState declarations.
+   */
+  useEffect(() => {
+    // ── Check if user was auto-logged out ─────────
+    const reason = sessionStorage.getItem("logout_reason");
+    if (reason) {
+      toast.info(reason, { duration: 8000 });
+      sessionStorage.removeItem("logout_reason");
+    }
+  }, []);
+
   // The main return statement of the LoginPage component. It renders a full-screen login page with a background gradient and a subtle pattern. The page includes a centered card containing the login form, which consists of input fields for email and password, along with validation error messages. There are also links for checking results with a scratch card and registering a new school. The design is responsive and visually appealing, with a modern aesthetic.
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4 sm:p-6">
@@ -155,7 +169,7 @@ export default function LoginPage() {
                 href="/check-result"
                 className="text-sm text-slate-500 hover:text-blue-600 flex items-center justify-center gap-1.5 transition-colors"
               >
-                <GraduationCap className="w-4 h-4" />
+                <GraduationCap className="w-4 h-4 test-blue-600 font-bold" />
                 Check your result with a scratch card
               </Link>
             </div>

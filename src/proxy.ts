@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   "/api/scratch-cards/validate",
   "/api/scratch-cards/validate-pdf",
   "/api/public/sessions",
+  "/api/scratch-cards/validate-cumulative-pdf",
 ];
 
 const ROLE_ROUTES: Record<string, string[]> = {

@@ -36,6 +36,7 @@ import api from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Award,
   BookOpen,
   Download,
   FileText,
@@ -473,6 +474,105 @@ export default function ResultsPage() {
                               }
                             >
                               <Download className="w-4 h-4" />
+                            </Button>
+
+                            {/**
+                             * Fix the cumulative download button.
+                             * Was passing sessionId="" because classResults?.sessionId was undefined.
+                             */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50 text-xs"
+                              title="Download cumulative result PDF"
+                              disabled={!classResults?.sessionId} // ← disable if no sessionId
+                              onClick={async () => {
+                                // ── Guard: ensure sessionId exists ──────────
+                                if (!classResults?.sessionId) {
+                                  toast.error(
+                                    "Session ID not available. Please reload the page.",
+                                  );
+                                  return;
+                                }
+
+                                if (!r.student?.id) {
+                                  toast.error("Student ID not found.");
+                                  return;
+                                }
+
+                                const toastId = toast.loading(
+                                  "Generating cumulative PDF...",
+                                );
+
+                                try {
+                                  const response = await api.get(
+                                    `/results/cumulative/pdf?studentId=${r.student.id}&sessionId=${classResults.sessionId}`,
+                                    { responseType: "blob" },
+                                  );
+
+                                  // ── Verify response is actually a PDF ────────
+                                  const contentType = String(
+                                    response.headers["content-type"] ?? "",
+                                  );
+                                  if (
+                                    !contentType.includes("application/pdf")
+                                  ) {
+                                    const text = await (
+                                      response.data as Blob
+                                    ).text();
+                                    try {
+                                      const json = JSON.parse(text);
+                                      toast.error(
+                                        json.message ??
+                                          "Failed to generate PDF",
+                                        { id: toastId },
+                                      );
+                                    } catch {
+                                      toast.error(
+                                        "Failed to generate cumulative PDF",
+                                        { id: toastId },
+                                      );
+                                    }
+                                    return;
+                                  }
+
+                                  const blob = new Blob([response.data], {
+                                    type: "application/pdf",
+                                  });
+                                  const url = URL.createObjectURL(blob);
+                                  const link = document.createElement("a");
+                                  link.href = url;
+                                  link.download = `Cumulative_${r.student.lastName}_${r.student.firstName}.pdf`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  URL.revokeObjectURL(url);
+
+                                  toast.success("Cumulative PDF downloaded!", {
+                                    id: toastId,
+                                  });
+                                } catch (e: any) {
+                                  // ── Parse error from blob response ───────────
+                                  if (e.response?.data instanceof Blob) {
+                                    try {
+                                      const text = await e.response.data.text();
+                                      const json = JSON.parse(text);
+                                      toast.error(json.message ?? "Failed", {
+                                        id: toastId,
+                                      });
+                                      return;
+                                    } catch {}
+                                  }
+                                  toast.error(
+                                    e.response?.data?.message ??
+                                      "Failed to generate cumulative PDF",
+                                    { id: toastId },
+                                  );
+                                }
+                              }}
+                            >
+                              <Award className="w-3.5 h-3.5" />
+                              Cumulative
                             </Button>
                             <Button
                               size="icon"

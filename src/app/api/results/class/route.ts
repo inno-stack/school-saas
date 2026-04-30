@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
       {
         class: { id: cls.id, name: cls.name },
         session: session.name,
+        sessionId: session.id,
         term: term.name,
         termId: term.id,
         total: results.length,

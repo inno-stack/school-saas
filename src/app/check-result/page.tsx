@@ -162,6 +162,48 @@ export default function CheckResultPage() {
         toast.info(data.data.cardInfo.message, { duration: 7000 });
       }
 
+      // ── Handle cumulative — download PDF directly ──
+      if (data.data.isCumulative) {
+        toast.loading("Generating cumulative result PDF...", {
+          id: "cum-pdf",
+        });
+
+        try {
+          const pdfRes = await axios.post(
+            "/api/scratch-cards/validate-cumulative-pdf",
+            {
+              regNumber: values.regNumber,
+              pin: values.pin,
+              sessionId: values.sessionId,
+            },
+            { responseType: "blob" },
+          );
+
+          const blob = new Blob([pdfRes.data], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `Cumulative_Result.pdf`;
+          link.click();
+          URL.revokeObjectURL(url);
+
+          toast.success("Cumulative result PDF downloaded!", { id: "cum-pdf" });
+        } catch (pdfErr: any) {
+          toast.error(
+            pdfErr.response?.data?.message ??
+              "Failed to generate cumulative PDF.",
+            { id: "cum-pdf" },
+          );
+        }
+        return;
+      }
+
+      // ── Regular term result ────────────────────────
+      setResult(data.data);
+      setLastPin(values.pin);
+      setLastReg(values.regNumber);
+      setLastTermId(values.termId);
+
       // ── Scroll to result ──────────────────────
       setTimeout(() => {
         document.getElementById("result-section")?.scrollIntoView({
@@ -258,7 +300,7 @@ export default function CheckResultPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Logo + Brand */}
           <Link
-            href="/check-result"
+            href="/login"
             className="flex items-center gap-2.5 font-bold text-slate-800"
           >
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -270,7 +312,7 @@ export default function CheckResultPage() {
           {/* Nav Links */}
           <div className="hidden sm:flex items-center gap-6">
             <Link
-              href="/check-result"
+              href="/login"
               className="text-sm text-slate-600 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
             >
               <Home className="w-3.5 h-3.5" />

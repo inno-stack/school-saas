@@ -133,6 +133,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    /**
+     * When termId is "CUMULATIVE", return a special cumulative response.
+     */
+
+    // ── Handle cumulative term selection ───────────────
+    if (termId === "CUMULATIVE") {
+      // ── Verify card session matches requested session ─
+      if (sessionId && card.sessionId !== sessionId) {
+        return errorResponse(
+          `This card is for the ${card.session.name} session. ` +
+            `It cannot be used for a different session.`,
+          403,
+        );
+      }
+
+      // ── Consume one card use ───────────────────────
+      const newUsageCount = card.usageCount + 1;
+      const newStatus = newUsageCount >= card.maxUses ? "EXHAUSTED" : "ACTIVE";
+
+      await prisma.scratchCard.update({
+        where: { id: card.id },
+        data: { usageCount: newUsageCount, status: newStatus },
+      });
+
+      // ── Return a special cumulative indicator ──────
+      // The frontend will call validate-cumulative-pdf separately
+      return successResponse(
+        {
+          isCumulative: true,
+          sessionId: card.sessionId,
+          regNumber,
+          pin,
+          cardInfo: {
+            usesRemaining: card.maxUses - newUsageCount,
+            message:
+              newUsageCount >= card.maxUses
+                ? "⚠️ This was your last use. Please get a new scratch card."
+                : `✅ You have ${card.maxUses - newUsageCount} use(s) remaining.`,
+          },
+        },
+        "Cumulative result access granted",
+      );
+    }
+
     // ── 4. Resolve the term for the student's school ─
     // KEY FIX: Look up term by ID only, then verify it belongs
     // to the student's school. Don't filter by sessionId from

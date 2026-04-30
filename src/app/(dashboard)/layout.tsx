@@ -8,6 +8,7 @@
 
 "use client";
 
+import { InactivityGuard } from "@/components/layout/InactivityGuard";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useAuthStore } from "@/store/auth.store";
 import { useRouter } from "next/navigation";
@@ -62,6 +63,11 @@ export default function DashboardLayout({
       >
         {children}
       </main>
+      {/* ── Auto-logout inactivity guard ──────────────
+          Monitors user activity and shows a warning
+          before logging out after 30 minutes idle.
+      ─────────────────────────────────────────────── */}
+      <InactivityGuard />
     </div>
   );
 }
